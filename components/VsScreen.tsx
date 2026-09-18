@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { motion, useAnimation } from "motion/react";
+import { motion, useAnimation, useReducedMotion } from "motion/react";
 import type { Fighter } from "@/lib/types";
+import { TYPE_STYLES } from "@/lib/typeStyles";
 import { sfx } from "@/lib/sfx";
 import FighterPortrait from "./FighterPortrait";
 
@@ -15,8 +16,41 @@ const TOTAL_DURATION_MS = 2200;
 const SHAKE_AT_MS = 500;
 const FIGHT_AT_MS = 1400;
 
+function FighterSide({ fighter, side }: { fighter: Fighter; side: "player" | "cpu" }) {
+  const typeStyle = TYPE_STYLES[fighter.type];
+  const isPlayer = side === "player";
+  return (
+    <motion.div
+      initial={{ x: isPlayer ? -260 : 260, opacity: 0, rotate: isPlayer ? -6 : 6 }}
+      animate={{ x: 0, opacity: 1, rotate: 0 }}
+      transition={{ type: "spring", stiffness: 500, damping: 22, delay: isPlayer ? 0 : 0.1 }}
+      className="flex flex-col items-center text-center"
+    >
+      <div className={`border-[3px] border-ink shadow-hard ${isPlayer ? "-rotate-2" : "rotate-2"}`}>
+        <FighterPortrait fighter={fighter} size="lg" />
+      </div>
+      <p className={`headline mt-3 text-2xl sm:text-3xl ${isPlayer ? "text-cobalt" : "text-fight"}`}>{fighter.fighterName}</p>
+      <p className="text-xs italic text-ink-soft">{fighter.title}</p>
+      <span
+        className={`mt-2 border-2 border-ink px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest ${typeStyle.bg} ${typeStyle.onBg}`}
+      >
+        {typeStyle.icon} {typeStyle.label}
+      </span>
+      <motion.p
+        initial={{ opacity: 0, y: 8, scale: 0.85 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ delay: 0.8, duration: 0.3 }}
+        className="mt-3 max-w-[140px] border-2 border-ink bg-card px-2 py-1 font-mono text-[10px] text-ink shadow-hard-sm"
+      >
+        &ldquo;{fighter.catchphrase}&rdquo;
+      </motion.p>
+    </motion.div>
+  );
+}
+
 export default function VsScreen({ player, cpu, onDone }: VsScreenProps) {
   const shakeControls = useAnimation();
+  const reduceMotion = useReducedMotion();
   const doneRef = useRef(false);
   const [showFight, setShowFight] = useState(false);
 
@@ -28,6 +62,7 @@ export default function VsScreen({ player, cpu, onDone }: VsScreenProps) {
     }
 
     const shakeTimer = setTimeout(() => {
+      if (reduceMotion) return;
       shakeControls.start({
         x: [0, -14, 12, -8, 6, 0],
         y: [0, 6, -6, 4, -2, 0],
@@ -62,95 +97,33 @@ export default function VsScreen({ player, cpu, onDone }: VsScreenProps) {
       onClick={handleTapSkip}
       className="no-select relative min-h-dvh cursor-pointer overflow-hidden"
     >
-      <style>{`
-        @keyframes vsStripeSlide {
-          from { background-position: 0 0; }
-          to { background-position: 240px 240px; }
-        }
-      `}</style>
+      {/* diagonal split poster background: cobalt (player) vs fight red (cpu), hard cut, no gradient */}
+      <div className="absolute inset-0 bg-cobalt" style={{ clipPath: "polygon(0 0, 100% 0, 0 100%)" }} />
+      <div className="absolute inset-0 bg-fight" style={{ clipPath: "polygon(100% 0, 100% 100%, 0 100%)" }} />
 
-      {/* diagonal split background: cyan (player) top-left, pink (cpu) bottom-right */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background: "linear-gradient(135deg, rgba(34,211,238,.4), #0a0a12 60%)",
-          clipPath: "polygon(0 0, 100% 0, 0 100%)",
-        }}
-      />
-      <div
-        className="absolute inset-0"
-        style={{
-          background: "linear-gradient(135deg, #0a0a12 40%, rgba(255,46,136,.4))",
-          clipPath: "polygon(100% 0, 100% 100%, 0 100%)",
-        }}
-      />
-      <div
-        className="absolute inset-0 opacity-20"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(115deg, rgba(255,255,255,.6) 0px, rgba(255,255,255,.6) 3px, transparent 3px, transparent 44px)",
-          animation: "vsStripeSlide 5s linear infinite",
-        }}
-      />
-
-      <div className="relative z-10 flex min-h-dvh flex-col items-center justify-center px-4">
-        <div className="flex w-full max-w-md items-center justify-between px-2">
-          <motion.div
-            initial={{ x: -300, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0 }}
-            className="flex flex-col items-center text-center"
-          >
-            <FighterPortrait fighter={player} size="lg" />
-            <p className="mt-2 font-display text-lg text-neon-cyan">{player.fighterName}</p>
-            <p className="text-xs italic text-neutral-400">{player.title}</p>
-            <motion.p
-              initial={{ opacity: 0, y: 8, scale: 0.85 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ delay: 0.8, duration: 0.3 }}
-              className="mt-2 max-w-[130px] rounded-xl border border-panel-edge bg-panel px-2 py-1 text-[10px] text-neutral-200"
-            >
-              &ldquo;{player.catchphrase}&rdquo;
-            </motion.p>
-          </motion.div>
-
-          <motion.div
-            initial={{ x: 300, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0.15 }}
-            className="flex flex-col items-center text-center"
-          >
-            <FighterPortrait fighter={cpu} size="lg" />
-            <p className="mt-2 font-display text-lg text-neon-pink">{cpu.fighterName}</p>
-            <p className="text-xs italic text-neutral-400">{cpu.title}</p>
-            <motion.p
-              initial={{ opacity: 0, y: 8, scale: 0.85 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ delay: 0.8, duration: 0.3 }}
-              className="mt-2 max-w-[130px] rounded-xl border border-panel-edge bg-panel px-2 py-1 text-[10px] text-neutral-200"
-            >
-              &ldquo;{cpu.catchphrase}&rdquo;
-            </motion.p>
-          </motion.div>
+      <div className="relative z-10 flex min-h-dvh flex-col items-center justify-center gap-10 px-4 py-8">
+        <div className="flex w-full max-w-md items-center justify-between gap-4 sm:max-w-2xl">
+          <FighterSide fighter={player} side="player" />
+          <FighterSide fighter={cpu} side="cpu" />
         </div>
 
         <motion.div
-          initial={{ scale: 4, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.5, type: "spring", stiffness: 300, damping: 12 }}
-          className="pointer-events-none absolute font-display text-8xl neon-yellow"
+          initial={{ scale: 1.6, opacity: 0, rotate: -8 }}
+          animate={{ scale: 1, opacity: 1, rotate: -4 }}
+          transition={{ delay: 0.5, type: "spring", stiffness: 500, damping: 20 }}
+          className="pointer-events-none absolute flex h-24 w-24 items-center justify-center border-[5px] border-ink bg-gold shadow-hard-lg sm:h-32 sm:w-32"
         >
-          VS
+          <span className="headline misprint text-4xl text-ink sm:text-5xl">VS</span>
         </motion.div>
 
         {showFight && (
           <motion.div
             initial={{ opacity: 0, scale: 1.4 }}
-            animate={{ opacity: 1, scale: 1, color: ["#ffffff", "#ffffff", "#facc15"] }}
-            transition={{ duration: 0.6, times: [0, 0.3, 1] }}
-            className="pointer-events-none absolute bottom-16 font-display text-3xl tracking-wide"
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4 }}
+            className="pointer-events-none absolute bottom-14 -rotate-1 border-[3px] border-ink bg-card px-4 py-2 shadow-hard"
           >
-            ROUND 1&hellip; FIGHT!
+            <span className="headline text-2xl text-ink sm:text-3xl">Round 1&hellip; Fight!</span>
           </motion.div>
         )}
       </div>

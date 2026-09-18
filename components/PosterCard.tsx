@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import type { Fighter } from "@/lib/types";
+import type { Fighter, MoveType } from "@/lib/types";
 import type { BattleState } from "@/lib/battle";
 import type { FightStats } from "@/lib/fightStats";
 
@@ -14,39 +14,69 @@ type PosterCardProps = {
 const POSTER_WIDTH = 360;
 const POSTER_HEIGHT = 640;
 
-function PosterPortrait({
-  fighter,
-  size,
-  grayscale,
-}: {
-  fighter: Fighter;
-  size: number;
-  grayscale?: boolean;
-}) {
+// Hex-only palette (mirrors app/globals.css). html-to-image can't reliably
+// resolve CSS custom properties when it inlines styles, so every colour on
+// this card is a literal hex value.
+const PAPER = "#eee6d3";
+const PAPER_DARK = "#e0d5bc";
+const CARD = "#fbf7ee";
+const INK = "#141210";
+const INK_SOFT = "#5b544a";
+const FIGHT = "#e23b26";
+const GOLD = "#f4c21b";
+const COBALT = "#1f4fd6";
+
+const TYPE_HEX: Record<MoveType, string> = {
+  heat: "#e8552d",
+  sharp: "#9aa3ad",
+  electric: "#f4c21b",
+  liquid: "#2f7be0",
+  blunt: "#a0784e",
+  chaos: "#c23a93",
+};
+
+function PosterPortrait({ fighter, size, dim }: { fighter: Fighter; size: number; dim?: boolean }) {
+  const tint = TYPE_HEX[fighter.type];
   return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: 16,
-        overflow: "hidden",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: `radial-gradient(circle, var(--color-type-${fighter.type}, #333) 0%, #0a0a12 78%)`,
-        filter: grayscale ? "grayscale(1) brightness(0.7)" : undefined,
-      }}
-    >
+    <div style={{ position: "relative", width: size, height: size, overflow: "hidden", background: PAPER_DARK }}>
       {fighter.imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- captured by html-to-image, must be a real <img>
         <img
           src={fighter.imageUrl}
           alt={fighter.objectName}
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            filter: dim ? "grayscale(1) brightness(0.75)" : undefined,
+          }}
         />
       ) : (
-        <span style={{ fontSize: size * 0.55, lineHeight: 1 }}>{fighter.emoji}</span>
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: `${tint}33`,
+          }}
+        >
+          <span style={{ fontSize: size * 0.5, lineHeight: 1, filter: dim ? "grayscale(1)" : undefined }}>
+            {fighter.emoji}
+          </span>
+        </div>
       )}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: `radial-gradient(${tint} 1.3px, transparent 1.5px)`,
+          backgroundSize: "8px 8px",
+          opacity: dim ? 0.12 : 0.28,
+        }}
+      />
     </div>
   );
 }
@@ -65,30 +95,29 @@ const PosterCard = forwardRef<HTMLDivElement, PosterCardProps>(function PosterCa
         height: POSTER_HEIGHT,
         position: "relative",
         overflow: "hidden",
-        background: "#0a0a12",
-        backgroundImage:
-          "linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px)",
-        backgroundSize: "24px 24px",
+        background: PAPER,
         fontFamily: "var(--font-body), system-ui, sans-serif",
-        color: "#f5f5f7",
+        color: INK,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        padding: "22px 20px",
+        padding: "20px 20px 16px",
         boxSizing: "border-box",
+        border: `6px solid ${INK}`,
       }}
     >
-      {/* diagonal light beam */}
+      {/* halftone corner */}
       <div
+        aria-hidden="true"
         style={{
           position: "absolute",
-          top: "-20%",
-          left: "-30%",
-          width: "160%",
-          height: "70%",
-          background:
-            "linear-gradient(115deg, rgba(34,211,238,.22), rgba(255,46,136,.22) 60%, transparent 90%)",
-          transform: "rotate(-8deg)",
+          top: -40,
+          right: -40,
+          width: 200,
+          height: 200,
+          backgroundImage: `radial-gradient(${INK} 1.6px, transparent 1.8px)`,
+          backgroundSize: "10px 10px",
+          opacity: 0.14,
           pointerEvents: "none",
         }}
       />
@@ -96,14 +125,25 @@ const PosterCard = forwardRef<HTMLDivElement, PosterCardProps>(function PosterCa
       {/* header */}
       <div style={{ position: "relative", textAlign: "center", zIndex: 1 }}>
         <p
-          className="neon-pink"
-          style={{ fontFamily: "var(--font-display)", fontSize: 12, letterSpacing: 2, margin: 0 }}
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            letterSpacing: 3,
+            margin: 0,
+            textTransform: "uppercase",
+            color: INK_SOFT,
+          }}
         >
-          OBJECT ROYALE
+          Object Royale Presents
         </p>
         <p
-          className="neon-yellow"
-          style={{ fontFamily: "var(--font-display)", fontSize: 15, margin: "4px 0 0" }}
+          style={{
+            fontFamily: "var(--font-display)",
+            textTransform: "uppercase",
+            fontSize: 17,
+            margin: "4px 0 0",
+            color: INK,
+          }}
         >
           {arenaName}
         </p>
@@ -114,91 +154,108 @@ const PosterCard = forwardRef<HTMLDivElement, PosterCardProps>(function PosterCa
         style={{
           position: "relative",
           zIndex: 1,
-          marginTop: 24,
+          marginTop: 20,
           width: "100%",
-          height: 230,
+          height: 220,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <div style={{ position: "relative" }}>
+        <div style={{ position: "relative", transform: "rotate(-2deg)" }}>
           <div
             style={{
-              width: 200,
-              height: 200,
-              borderRadius: 20,
-              border: "4px solid #ffd700",
-              boxShadow: "0 0 28px rgba(255,215,0,.45)",
+              width: 188,
+              height: 188,
+              border: `5px solid ${INK}`,
+              boxShadow: `6px 6px 0 0 ${INK}`,
               overflow: "hidden",
             }}
           >
-            <PosterPortrait fighter={winner} size={192} />
+            <PosterPortrait fighter={winner} size={178} />
           </div>
           <span
             style={{
               position: "absolute",
-              top: -30,
-              left: "50%",
-              transform: "translateX(-50%)",
-              fontSize: 40,
+              top: -18,
+              left: -14,
+              transform: "rotate(-8deg)",
+              background: GOLD,
+              border: `3px solid ${INK}`,
+              fontFamily: "var(--font-mono)",
+              fontWeight: 700,
+              fontSize: 12,
+              letterSpacing: 1,
+              padding: "3px 8px",
+              color: INK,
             }}
           >
-            👑
+            ★ CHAMPION
           </span>
 
           <div
             style={{
               position: "absolute",
-              bottom: -18,
-              right: -30,
-              transform: "rotate(-10deg)",
-              width: 90,
-              height: 90,
-              borderRadius: 14,
-              border: "3px solid #4b4b5a",
+              bottom: -22,
+              right: -34,
+              transform: "rotate(8deg)",
+              width: 84,
+              height: 84,
+              border: `3px solid ${INK}`,
               overflow: "hidden",
-              opacity: 0.85,
+              background: CARD,
             }}
           >
-            <PosterPortrait fighter={loser} size={84} grayscale />
-            <span
+            <PosterPortrait fighter={loser} size={78} dim />
+            {/* crossed-out mark, drawn (no emoji decoration) */}
+            <div
+              aria-hidden="true"
               style={{
                 position: "absolute",
-                top: -10,
-                right: -10,
-                fontSize: 26,
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
-              ❌
-            </span>
+              <div style={{ position: "absolute", width: "130%", height: 5, background: FIGHT, transform: "rotate(45deg)" }} />
+              <div style={{ position: "absolute", width: "130%", height: 5, background: FIGHT, transform: "rotate(-45deg)" }} />
+            </div>
           </div>
         </div>
       </div>
 
       {/* headline */}
-      <div style={{ position: "relative", zIndex: 1, textAlign: "center", marginTop: 8 }}>
+      <div style={{ position: "relative", zIndex: 1, textAlign: "center", marginTop: 6 }}>
         <p
-          className="neon-yellow"
-          style={{ fontFamily: "var(--font-display)", fontSize: 34, margin: 0, lineHeight: 1.05 }}
+          style={{
+            fontFamily: "var(--font-display)",
+            textTransform: "uppercase",
+            fontSize: 32,
+            margin: 0,
+            lineHeight: 1.02,
+            color: INK,
+            textShadow: `3px 3px 0 ${FIGHT}, -2px -1px 0 ${COBALT}`,
+          }}
         >
           {stats.headline}
         </p>
         <p
           style={{
-            marginTop: 6,
+            marginTop: 8,
             display: "inline-block",
+            fontFamily: "var(--font-mono)",
             fontSize: 10,
             letterSpacing: 1,
-            color: "#9ca3af",
-            border: "1px solid #2a2a40",
-            borderRadius: 999,
+            color: INK,
+            border: `2px solid ${INK}`,
             padding: "2px 8px",
+            background: CARD,
           }}
         >
           {methodLabel}
         </p>
-        <p style={{ marginTop: 6, fontSize: 12, color: "#d4d4d8" }}>{stats.resultLine}</p>
+        <p style={{ marginTop: 8, fontFamily: "var(--font-mono)", fontSize: 11, color: INK_SOFT }}>{stats.resultLine}</p>
       </div>
 
       {/* stats chips */}
@@ -206,54 +263,53 @@ const PosterCard = forwardRef<HTMLDivElement, PosterCardProps>(function PosterCa
         style={{
           position: "relative",
           zIndex: 1,
-          marginTop: 14,
+          marginTop: 12,
           display: "flex",
-          gap: 8,
+          gap: 6,
           flexWrap: "wrap",
           justifyContent: "center",
         }}
       >
         <span
           style={{
-            background: "#151522",
-            border: "1px solid #2a2a40",
-            borderRadius: 999,
-            padding: "4px 10px",
-            fontSize: 11,
+            background: CARD,
+            border: `2px solid ${INK}`,
+            padding: "4px 8px",
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
           }}
         >
-          💥 Biggest hit {stats.biggestHit?.damage ?? 0}
+          💥 BIGGEST HIT {stats.biggestHit?.damage ?? 0}
         </span>
         <span
           style={{
-            background: "#151522",
-            border: "1px solid #2a2a40",
-            borderRadius: 999,
-            padding: "4px 10px",
-            fontSize: 11,
+            background: CARD,
+            border: `2px solid ${INK}`,
+            padding: "4px 8px",
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
           }}
         >
-          ⚡ {stats.superEffectiveCount} super-effective
+          ⚡ {stats.superEffectiveCount} SUPER-EFFECTIVE
         </span>
         <span
           style={{
-            background: "#151522",
-            border: "1px solid #2a2a40",
-            borderRadius: 999,
-            padding: "4px 10px",
-            fontSize: 11,
+            background: CARD,
+            border: `2px solid ${INK}`,
+            padding: "4px 8px",
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
           }}
         >
-          ❤️ {stats.winnerHpLeftPct}% HP left
+          ❤️ {stats.winnerHpLeftPct}% HP LEFT
         </span>
       </div>
 
       {/* footer */}
-      <div style={{ position: "relative", zIndex: 1, marginTop: "auto", textAlign: "center" }}>
-        <p style={{ fontSize: 12, fontStyle: "italic", color: "#a3a3ad", margin: 0 }}>
-          &ldquo;{winner.catchphrase}&rdquo;
-        </p>
-        <p style={{ marginTop: 10, fontSize: 9, letterSpacing: 0.5, color: "#5a5a6a" }}>
+      <div style={{ position: "relative", zIndex: 1, marginTop: "auto", width: "100%", textAlign: "center" }}>
+        <div style={{ height: 3, width: "100%", background: INK, marginBottom: 10 }} />
+        <p style={{ fontSize: 12, fontStyle: "italic", color: INK_SOFT, margin: 0 }}>&ldquo;{winner.catchphrase}&rdquo;</p>
+        <p style={{ marginTop: 8, fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: 0.5, color: INK_SOFT }}>
           Play: object-royale.vercel.app
         </p>
       </div>

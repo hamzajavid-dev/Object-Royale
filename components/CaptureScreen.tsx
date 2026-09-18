@@ -8,6 +8,9 @@ type CaptureScreenProps = {
   onDemo: () => void;
 };
 
+const MARQUEE_TEXT =
+  "YOUR MUG VS YOUR LAPTOP ✦ NO REFUNDS ✦ OBJECTS ONLY, NO HUMANS ✦ WINNER TAKES THE SHELF ✦ ";
+
 export default function CaptureScreen({ onPhoto, onDemo }: CaptureScreenProps) {
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -17,60 +20,82 @@ export default function CaptureScreen({ onPhoto, onDemo }: CaptureScreenProps) {
   }
 
   return (
-    <div className="min-h-dvh flex flex-col items-center justify-center gap-8 text-center">
-      <div className="flex flex-col items-center font-display">
-        <motion.div
-          initial={{ y: -80, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 300, damping: 12, delay: 0 }}
-          className="text-6xl text-white"
-        >
-          OBJECT
-        </motion.div>
-        <motion.div
-          initial={{ y: -80, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 300, damping: 12, delay: 0.15 }}
-          className="neon-pink text-7xl -rotate-2"
-        >
-          ROYALE
-        </motion.div>
+    <div className="flex min-h-dvh flex-col">
+      {/* marquee ticker strip */}
+      <div className="no-select -mx-4 overflow-hidden border-y-[3px] border-ink bg-ink py-1.5 sm:-mx-6 lg:-mx-10">
+        <div className="marquee flex w-max whitespace-nowrap">
+          {[0, 1].map((i) => (
+            <span key={i} className="pr-8 font-mono text-[11px] uppercase tracking-widest text-card">
+              {MARQUEE_TEXT}
+            </span>
+          ))}
+        </div>
       </div>
 
-      <p className="text-lg text-neutral-300">
-        Photograph your surroundings.
-        <br />
-        Make everything fight.
-      </p>
+      <div className="flex flex-1 flex-col items-center justify-center gap-8 py-10 text-center md:grid md:grid-cols-2 md:items-center md:gap-12 md:text-left">
+        {/* left: hero headline */}
+        <div className="relative flex flex-col items-center md:items-start">
+          <span className="absolute -top-7 right-0 z-10 rotate-6 border-2 border-ink bg-gold px-2 py-0.5 font-mono text-[11px] uppercase tracking-widest text-ink shadow-hard-sm md:right-auto md:left-2 md:-top-8">
+            Tonight Only
+          </span>
 
-      <motion.label
-        className="w-full py-5 rounded-2xl font-display text-2xl bg-neon-pink text-black shadow-[0_0_30px_rgba(255,46,136,.6)] cursor-pointer flex items-center justify-center"
-        animate={{ scale: [1, 1.04, 1] }}
-        transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-        whileTap={{ scale: 0.95 }}
-      >
-        📸 SCAN YOUR ARENA
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={handleFileChange}
-        />
-      </motion.label>
+          <motion.div
+            initial={{ scale: 1.4, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 500, damping: 22 }}
+            className="headline misprint -rotate-2 text-6xl text-ink sm:text-7xl md:text-8xl"
+          >
+            OBJECT
+          </motion.div>
+          <motion.div
+            initial={{ scale: 1.4, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 500, damping: 22, delay: 0.08 }}
+            className="headline -rotate-2 text-6xl text-fight sm:text-7xl md:text-8xl"
+          >
+            ROYALE
+          </motion.div>
 
-      <button
-        type="button"
-        onClick={onDemo}
-        className="text-neon-cyan underline-offset-4 hover:underline"
-      >
-        or try the demo arena →
-      </button>
+          <span className="mt-5 -rotate-1 border-2 border-ink bg-card px-2 py-0.5 font-mono text-[11px] uppercase tracking-widest text-ink shadow-hard-sm">
+            All Objects Welcome
+          </span>
 
-      <p className="text-xs text-neutral-500 mt-auto">
-        Objects only. No humans were harmed in the making of these fights.
-      </p>
-      <AiCommentaryToggle />
+          <p className="mt-6 max-w-xs font-body text-sm text-ink-soft md:max-w-sm md:text-base">
+            Photograph your surroundings. AI turns everyday objects into fighters. You make them battle.
+          </p>
+        </div>
+
+        {/* right: capture card */}
+        <div className="ink-card mx-auto flex w-full max-w-sm flex-col items-center gap-4 p-6 md:mx-0">
+          <motion.label
+            whileTap={{ scale: 0.97 }}
+            className="press flex w-full min-h-14 cursor-pointer items-center justify-center gap-2 border-[3px] border-ink bg-fight font-mono text-lg font-bold uppercase tracking-wide text-card shadow-hard"
+          >
+            📸 Scan Your Arena
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+          </motion.label>
+
+          <button
+            type="button"
+            onClick={onDemo}
+            className="press w-full min-h-11 border-[3px] border-ink bg-card py-3 font-mono text-sm uppercase tracking-widest text-ink shadow-hard-sm hover:-translate-y-0.5"
+          >
+            Try The Demo Card →
+          </button>
+
+          <AiCommentaryToggle />
+
+          <p className="mt-1 text-center font-mono text-[11px] text-ink-faint">
+            Objects only. No humans were harmed in the making of these fights.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

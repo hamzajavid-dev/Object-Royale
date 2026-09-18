@@ -26,11 +26,16 @@ export default function AiCommentaryToggle() {
       type="button"
       onClick={toggle}
       aria-pressed={enabled}
-      className={`rounded-full border-2 border-panel-edge bg-panel px-3 py-1 text-xs ${
-        enabled ? "text-neon-cyan" : "text-neutral-400"
+      aria-label={`AI commentary ${enabled ? "on" : "off"}`}
+      className={`press flex min-h-11 items-center justify-center gap-2 rotate-1 border-2 border-ink px-3 py-2 font-mono text-[11px] uppercase tracking-widest shadow-hard-sm ${
+        enabled ? "bg-gold text-ink" : "bg-card text-ink-soft"
       }`}
     >
-      AI commentary: {enabled ? "ON" : "OFF"}
+      <span
+        aria-hidden="true"
+        className={`h-2 w-2 border border-ink ${enabled ? "bg-fight" : "bg-ink-faint"}`}
+      />
+      AI Commentary: {enabled ? "ON" : "OFF"}
     </button>
   );
 }
