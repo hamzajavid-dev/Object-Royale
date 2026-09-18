@@ -64,7 +64,7 @@ export async function POST(req: Request): Promise<Response> {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 2500,
+        max_tokens: 4500,
         temperature: 0.9,
         reasoning: { enabled: false },
         response_format: {

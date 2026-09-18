@@ -16,6 +16,7 @@ export type NarrateInput = {
   attackerHpPct: number; // 0-100 after the move
   defenderHpPct: number; // 0-100 after the move
   moveNumber: number; // 1-based
+  effectLabel?: string; // e.g. "BURNED!" — set when the move triggered a side effect
 };
 
 function fillTemplate(template: string, i: NarrateInput): string {
@@ -31,7 +32,9 @@ function fillTemplate(template: string, i: NarrateInput): string {
     .split("{move}")
     .join(i.moveName)
     .split("{damage}")
-    .join(String(i.damage));
+    .join(String(i.damage))
+    .split("{effect}")
+    .join(i.effectLabel ?? "");
 }
 
 function pick<T>(arr: readonly T[], rng: () => number): T {
@@ -77,6 +80,12 @@ const SUPER_LINES: readonly string[] = [
   "Weakness located and exploited! {attacker}'s {move} deals {damage} super-effective damage to {defender}!",
 ];
 
+const EFFECT_LINES: readonly string[] = [
+  "{attacker}'s {move} connects for {damage}, and now {defender} is {effect} Rough spot to be in!",
+  "{damage} damage from {move}, plus {defender} is left {effect} {attacker} is playing dirty tonight!",
+  "That's {damage} damage AND {defender} is {effect} {attacker}'s {move} does it all!",
+];
+
 const NORMAL_LINES: readonly string[] = [
   "{attacker} fires off {move}! {defender} takes {damage} damage and is not thrilled about it.",
   "{attacker}'s {move} connects! {defender} absorbs {damage} damage, still standing but rattled.",
@@ -95,7 +104,15 @@ const NORMAL_LINES: readonly string[] = [
  * Math.random) from the pool matching the most dramatic situation present.
  */
 export function fallbackLine(i: NarrateInput, rng: () => number = Math.random): string {
-  const pool = i.ko ? KO_LINES : i.crit ? CRIT_LINES : i.superEffective ? SUPER_LINES : NORMAL_LINES;
+  const pool = i.ko
+    ? KO_LINES
+    : i.crit
+      ? CRIT_LINES
+      : i.superEffective
+        ? SUPER_LINES
+        : i.effectLabel
+          ? EFFECT_LINES
+          : NORMAL_LINES;
   const template = pick(pool, rng);
   return fillTemplate(template, i);
 }
@@ -117,6 +134,7 @@ export function buildNarratePrompt(i: NarrateInput): string {
     "You are a hype esports and cricket commentator who is also a stand-up comic, calling a battle between everyday objects.",
     `${i.attackerName} (a ${i.attackerObject}) used "${i.moveName}" (${i.moveDescription}) on ${i.defenderName} (a ${i.defenderObject}), dealing ${i.damage} damage.`,
     `This is move #${i.moveNumber}. ${i.attackerName} is at ${i.attackerHpPct}% HP and ${i.defenderName} is at ${i.defenderHpPct}% HP.`,
+    i.effectLabel ? `The move also triggered an effect: ${i.effectLabel}. Mention it.` : "",
     tone,
     "Rules: one or two sentences, 25 words max. Output ONLY the line, no quotes, no emojis, no names in brackets, no stage directions. Reference what these objects really are for jokes (a chai cup is hot, a laptop has updates and a battery).",
   ].join(" ");
