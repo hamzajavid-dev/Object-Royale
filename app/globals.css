@@ -1,54 +1,115 @@
 @import "tailwindcss";
 
-@theme {
-  /* surfaces */
-  --color-arena: #0a0a12;       /* page background */
-  --color-panel: #151522;       /* cards, boxes */
-  --color-panel-edge: #2a2a40;  /* borders */
+/* ─────────────────────────────────────────────────────────────
+   OBJECT ROYALE — "Fight-night poster / riso zine" design system
+   Owned by the lead. Paper, ink, hard shadows, flat print colours.
+   No glows, no gradients-as-decoration, no glassmorphism.
+   ───────────────────────────────────────────────────────────── */
 
-  /* neon accents */
-  --color-neon-pink: #ff2e88;
-  --color-neon-cyan: #22d3ee;
-  --color-neon-yellow: #facc15;
+@theme {
+  /* paper & ink */
+  --color-paper: #eee6d3;       /* page background */
+  --color-paper-dark: #e0d5bc;  /* recessed areas, stripes */
+  --color-card: #fbf7ee;        /* raised cards, buttons */
+  --color-ink: #141210;         /* text, every border, every shadow */
+  --color-ink-soft: #5b544a;    /* secondary text */
+  --color-ink-faint: #9b9283;   /* disabled, hints */
+
+  /* print accents (use sparingly: one accent per element) */
+  --color-fight: #e23b26;       /* primary action red */
+  --color-gold: #f4c21b;        /* special, winner, highlights */
+  --color-cobalt: #1f4fd6;      /* player side */
+  --color-rival: #e23b26;       /* cpu side */
 
   /* health */
-  --color-hp-high: #22c55e;
-  --color-hp-mid: #facc15;
-  --color-hp-low: #ef4444;
+  --color-hp-high: #1e9e57;
+  --color-hp-mid: #f4c21b;
+  --color-hp-low: #e23b26;
 
-  /* fighter types (used from step 02 on) */
-  --color-type-heat: #f97316;
-  --color-type-sharp: #cbd5e1;
-  --color-type-electric: #facc15;
-  --color-type-liquid: #38bdf8;
-  --color-type-blunt: #a8a29e;
-  --color-type-chaos: #a855f7;
+  /* fighter types */
+  --color-type-heat: #e8552d;
+  --color-type-sharp: #9aa3ad;
+  --color-type-electric: #f4c21b;
+  --color-type-liquid: #2f7be0;
+  --color-type-blunt: #a0784e;
+  --color-type-chaos: #c23a93;
 
-  /* fonts (the variables are set in layout.tsx) */
-  --font-display: var(--font-bungee);
-  --font-body: var(--font-inter);
+  /* fonts (variables set in layout.tsx) */
+  --font-display: var(--font-anton);   /* tall condensed poster headlines, ALWAYS uppercase */
+  --font-body: var(--font-archivo);    /* body copy */
+  --font-mono: var(--font-plex-mono);  /* stats, labels, numbers, tags */
+
+  /* hard offset shadows */
+  --shadow-hard-sm: 2px 2px 0 0 var(--color-ink);
+  --shadow-hard: 4px 4px 0 0 var(--color-ink);
+  --shadow-hard-lg: 7px 7px 0 0 var(--color-ink);
 }
 
 html, body {
-  background: var(--color-arena);
-  color: #f5f5f7;
+  background: var(--color-paper);
+  color: var(--color-ink);
   overscroll-behavior: none;          /* no pull-to-refresh bounce */
   -webkit-tap-highlight-color: transparent;
 }
 
 body {
   font-family: var(--font-body), system-ui, sans-serif;
-  /* subtle arena grid */
+  /* faint print grain: two offset dot layers */
   background-image:
-    linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
-  background-size: 32px 32px;
+    radial-gradient(rgba(20,18,16,0.07) 0.8px, transparent 0.9px),
+    radial-gradient(rgba(20,18,16,0.04) 0.8px, transparent 0.9px);
+  background-size: 7px 7px, 11px 11px;
+  background-position: 0 0, 3px 5px;
 }
 
 /* game screens should not select text on long-press */
 .no-select { user-select: none; -webkit-user-select: none; }
 
-/* neon glow text */
-.neon-pink { color: var(--color-neon-pink); text-shadow: 0 0 8px rgba(255,46,136,.7), 0 0 24px rgba(255,46,136,.45); }
-.neon-cyan { color: var(--color-neon-cyan); text-shadow: 0 0 8px rgba(34,211,238,.7), 0 0 24px rgba(34,211,238,.45); }
-.neon-yellow { color: var(--color-neon-yellow); text-shadow: 0 0 8px rgba(250,204,21,.7), 0 0 24px rgba(250,204,21,.45); }
+/* ── building blocks ─────────────────────────────────────── */
+
+/* raised ink card: thick border + hard shadow */
+.ink-card {
+  background: var(--color-card);
+  border: 3px solid var(--color-ink);
+  box-shadow: var(--shadow-hard);
+}
+
+/* pressable: nudges into its shadow on press (pair with a hard shadow) */
+.press { transition: transform 80ms ease, box-shadow 80ms ease; }
+.press:active:not(:disabled) { transform: translate(3px, 3px); box-shadow: 1px 1px 0 0 var(--color-ink); }
+
+/* halftone dot fill — set `color` on the element to tint the dots */
+.halftone {
+  background-image: radial-gradient(currentColor 1.3px, transparent 1.5px);
+  background-size: 8px 8px;
+}
+
+/* diagonal hazard / broadcast stripes */
+.stripes {
+  background-image: repeating-linear-gradient(
+    -45deg, var(--color-ink) 0 10px, transparent 10px 20px
+  );
+}
+
+/* poster headline: Anton, uppercase, tight */
+.headline {
+  font-family: var(--font-display), Impact, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  line-height: 0.9;
+}
+
+/* misregistered print offset on big text (riso effect). Use on ≤1 element per screen. */
+.misprint { text-shadow: 3px 3px 0 var(--color-fight), -2px -1px 0 var(--color-cobalt); }
+
+/* speed lines behind a focal element */
+.speedlines {
+  background-image: repeating-conic-gradient(
+    from 0deg at 50% 50%, rgba(20,18,16,0.10) 0deg 3deg, transparent 3deg 12deg
+  );
+}
+
+/* spinning keyframe for loaders */
+@keyframes or-spin { to { transform: rotate(360deg); } }
+@keyframes or-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.marquee { animation: or-marquee 18s linear infinite; }
