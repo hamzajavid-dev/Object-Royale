@@ -21,6 +21,7 @@ export type BattleFighter = {
   statuses: Statuses;
   movesMade: number; // moves this fighter has taken (for first_strike)
   lastStandUsed: boolean;
+  energy: number;
 };
 
 export type BattleEventKind =
@@ -54,6 +55,8 @@ export type TurnResult = {
   ko: boolean; // someone hit 0 HP this turn
   skipped: boolean; // attacker was stunned (or fell to burn before acting)
   events: BattleEvent[]; // in the order they happened, for the UI to play back
+  energyCost: number; // energy actually spent by the attacker this turn
+  exhausted: boolean; // attacker tried a normal move without enough energy
 };
 
 export type BattleState = {
@@ -66,7 +69,24 @@ export type BattleState = {
 };
 
 export const MAX_MOVES = 20;
+export const MAX_ENERGY = 10;
+export const START_ENERGY = 5;
+export const ENERGY_REGEN = 3;
+export const SPECIAL_COST = 8;
 export type Rng = () => number;
+
+/** Normal: clamp(round((power - 6) / 5), 1, 4)  → 10→1, 15→2, 20→3, 25→4. Special: SPECIAL_COST. */
+export function moveCost(move: Move): number {
+  if (move.isSpecial) return SPECIAL_COST;
+  return Math.min(4, Math.max(1, Math.round((move.power - 6) / 5)));
+}
+
+/** true when bf.energy >= moveCost(bf.moves[i]) */
+export function canAfford(bf: BattleFighter, moveIndex: number): boolean {
+  const move = bf.moves[moveIndex];
+  if (!move) return false;
+  return bf.energy >= moveCost(move);
+}
 
 function otherSide(side: Side): Side {
   return side === "player" ? "cpu" : "player";
@@ -144,6 +164,7 @@ function makeBattleFighter(fighter: Fighter, loadout: Loadout): BattleFighter {
     statuses: makeStatuses(),
     movesMade: 0,
     lastStandUsed: false,
+    energy: START_ENERGY,
   };
 }
 
@@ -168,7 +189,7 @@ export function createBattle(
 export function canUseMove(bf: BattleFighter, moveIndex: number): boolean {
   const move = bf.moves[moveIndex];
   if (!move) return false;
-  if (move.isSpecial && bf.specialUsed) return false;
+  if (move.isSpecial) return bf.energy >= SPECIAL_COST;
   return true;
 }
 
@@ -187,7 +208,13 @@ type DamageBreakdown = {
   usedShield: boolean;
 };
 
-function calcDamage(move: Move, attacker: BattleFighter, defender: BattleFighter, rng: Rng): DamageBreakdown {
+function calcDamage(
+  move: Move,
+  attacker: BattleFighter,
+  defender: BattleFighter,
+  rng: Rng,
+  exhausted: boolean = false
+): DamageBreakdown {
   const superEffective = move.type === defender.fighter.weakness;
   const critChance = attacker.ability.kind === "lucky" ? 0.25 : 0.1;
   const crit = rng() < critChance;
@@ -200,6 +227,7 @@ function calcDamage(move: Move, attacker: BattleFighter, defender: BattleFighter
 
   if (attacker.statuses.boosted) damage *= 1.3;
   if (attacker.statuses.weakened) damage *= 0.7;
+  if (exhausted) damage *= 0.5;
 
   const usedHothead = attacker.ability.kind === "hothead" && hpPercent(attacker) < 50;
   if (usedHothead) damage *= 1.2;
@@ -237,6 +265,10 @@ function finalizeState(
     winner,
     winMethod,
   };
+}
+
+function regenEnergy(bf: BattleFighter): BattleFighter {
+  return { ...bf, energy: Math.min(MAX_ENERGY, bf.energy + ENERGY_REGEN) };
 }
 
 function decisionWinner(
@@ -284,6 +316,7 @@ export function applyMove(
     events.push({ side: attacker, kind: "burn_tick", amount: 6, label: "BURN −6" });
 
     if (hpAfterBurn === 0) {
+      curAttacker = regenEnergy(curAttacker);
       const moveCount = state.moveCount + 1;
       const result: TurnResult = {
         attacker,
@@ -297,6 +330,8 @@ export function applyMove(
         ko: true,
         skipped: true,
         events,
+        energyCost: 0,
+        exhausted: false,
       };
       const newState = finalizeState(state, attacker, curAttacker, curDefender, moveCount, result, defenderSide, "ko");
       return { state: newState, result };
@@ -314,6 +349,7 @@ export function applyMove(
   if (curAttacker.statuses.stunned) {
     curAttacker = { ...curAttacker, statuses: { ...curAttacker.statuses, stunned: false } };
     events.push({ side: attacker, kind: "stunned", label: "STUNNED!" });
+    curAttacker = regenEnergy(curAttacker);
 
     const moveCount = state.moveCount + 1;
     let winner: Side | null = null;
@@ -335,6 +371,8 @@ export function applyMove(
       ko: false,
       skipped: true,
       events,
+      energyCost: 0,
+      exhausted: false,
     };
     const newState = finalizeState(state, attacker, curAttacker, curDefender, moveCount, result, winner, winMethod);
     return { state: newState, result };
@@ -346,8 +384,16 @@ export function applyMove(
     throw new Error("Move cannot be used");
   }
 
-  const breakdown = calcDamage(move, curAttacker, curDefender, rng);
+  // --- Energy ---
+  const cost = moveCost(move);
+  const exhausted = !move.isSpecial && curAttacker.energy < cost;
+  const energyCost = exhausted ? curAttacker.energy : cost;
 
+  const breakdown = calcDamage(move, curAttacker, curDefender, rng, exhausted);
+
+  if (exhausted) {
+    events.push({ side: attacker, kind: "ability", label: "EXHAUSTED!" });
+  }
   if (breakdown.usedFirstStrike) {
     events.push({ side: attacker, kind: "ability", label: "FIRST STRIKE!" });
   }
@@ -443,10 +489,12 @@ export function applyMove(
     }
   }
 
+  const energyAfterSpend = Math.max(0, curAttacker.energy - energyCost);
   const finalAttacker: BattleFighter = {
     ...curAttacker,
     specialUsed: move.isSpecial ? true : curAttacker.specialUsed,
     movesMade: curAttacker.movesMade + 1,
+    energy: Math.min(MAX_ENERGY, energyAfterSpend + ENERGY_REGEN),
   };
 
   const moveCount = state.moveCount + 1;
@@ -474,6 +522,8 @@ export function applyMove(
     ko,
     skipped: false,
     events,
+    energyCost,
+    exhausted,
   };
 
   const newState = finalizeState(state, attacker, finalAttacker, curDefender, moveCount, result, winner, winMethod);
@@ -491,15 +541,21 @@ export function chooseCpuMove(state: BattleState, rng: Rng = Math.random): numbe
     return 0;
   }
 
+  // Prefer moves it can actually afford (won't trigger exhaustion); only fall
+  // back to an unaffordable normal move if nothing affordable exists.
+  const affordable = usable.filter((i) => canAfford(cpu, i));
+  const pool = affordable.length > 0 ? affordable : usable;
+
   const specialIndex = cpu.moves.findIndex((m) => m.isSpecial);
   const specialUsable = specialIndex !== -1 && usable.includes(specialIndex);
+  const specialChance = hpPercent(player) <= 50 ? 0.7 : 0.35;
 
-  if (hpPercent(player) <= 35 && specialUsable && rng() < 0.6) {
+  if (specialUsable && rng() < specialChance) {
     return specialIndex;
   }
 
   if (hpPercent(cpu) <= 40) {
-    const healOrDrain = usable.filter((i) => {
+    const healOrDrain = pool.filter((i) => {
       const eff = cpu.moves[i].effect;
       return eff && (eff.kind === "heal" || eff.kind === "drain");
     });
@@ -508,10 +564,10 @@ export function chooseCpuMove(state: BattleState, rng: Rng = Math.random): numbe
     }
   }
 
-  const superEffectiveIndices = usable.filter((i) => cpu.moves[i].type === player.fighter.weakness);
+  const superEffectiveIndices = pool.filter((i) => cpu.moves[i].type === player.fighter.weakness);
   if (superEffectiveIndices.length > 0 && rng() < 0.7) {
     return superEffectiveIndices[Math.floor(rng() * superEffectiveIndices.length)];
   }
 
-  return usable[Math.floor(rng() * usable.length)];
+  return pool[Math.floor(rng() * pool.length)];
 }
