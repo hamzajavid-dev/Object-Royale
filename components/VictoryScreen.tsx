@@ -124,8 +124,14 @@ export default function VictoryScreen({
         const blob = await (await fetch(dataUrl)).blob();
         const file = new File([blob], filename, { type: "image/png" });
         if (navigator.canShare?.({ files: [file] })) {
-          await navigator.share({ files: [file], title: "Object Royale", text: stats.resultLine });
-          return;
+          try {
+            await navigator.share({ files: [file], title: "Object Royale", text: stats.resultLine });
+            return;
+          } catch (err) {
+            // User closed the share sheet: not an error.
+            if (err instanceof DOMException && err.name === "AbortError") return;
+            // Otherwise (e.g. iOS lost the tap's activation while rendering), fall back to download.
+          }
         }
       }
 
