@@ -263,11 +263,8 @@ export default function BattleScreen({ player, cpu, playerLoadout, cpuLoadout, o
     const { state: next, result } = applyMove(currentState, side, moveIndex);
     const skipped = result.skipped;
     const burnKoed = skipped && result.ko;
-    // Guarantee the "EXHAUSTED!" stamp plays even if the engine doesn't push its
-    // own event for it — TurnResult.exhausted is the documented source of truth.
-    const exhaustedEvent: BattleEvent | null =
-      !skipped && result.exhausted ? { side, kind: "effect", label: "EXHAUSTED!" } : null;
-    const eventsToPlay = exhaustedEvent ? [exhaustedEvent, ...result.events] : result.events;
+    // The engine already emits an "EXHAUSTED!" event, so play its events as-is.
+    const eventsToPlay = result.events;
 
     if (skipped) {
       setAwaitingLine(false);

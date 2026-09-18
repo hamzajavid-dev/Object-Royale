@@ -23,7 +23,7 @@ export type Move = {
   type: MoveType;
   power: number;         // 10–35
   description: string;   // one short funny line
-  isSpecial?: boolean;   // exactly one per fighter (the last move); usable once per battle
+  isSpecial?: boolean;   // exactly one per fighter (the last move); costs SPECIAL_COST energy (lib/battle.ts), no use limit
   effect?: MoveEffect;   // optional side effect
 };
 
