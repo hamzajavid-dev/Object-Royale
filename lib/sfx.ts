@@ -73,6 +73,10 @@ export function setSfxEnabled(enabled: boolean): void {
   }
 }
 
+export function isSfxEnabled(): boolean {
+  return sfxEnabled;
+}
+
 /** Creates an oscillator tone with a short attack/decay envelope. */
 function tone(opts: {
   freq: number;
