@@ -150,7 +150,7 @@ export default function VictoryScreen({
             initial={{ scale: 2.2, opacity: 0, rotate: -6 }}
             animate={{ scale: 1, opacity: 1, rotate: -3 }}
             transition={{ type: "spring", stiffness: 500, damping: 22 }}
-            className={`headline misprint text-6xl sm:text-7xl ${playerWon ? "text-gold" : "text-fight"}`}
+            className={`headline misprint text-6xl sm:text-7xl ${playerWon ? "text-ink" : "text-fight"}`}
           >
             {playerWon ? "WINNER" : "DEFEATED"}
           </motion.h1>

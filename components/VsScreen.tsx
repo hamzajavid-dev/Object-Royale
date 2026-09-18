@@ -29,8 +29,8 @@ function FighterSide({ fighter, side }: { fighter: Fighter; side: "player" | "cp
       <div className={`border-[3px] border-ink shadow-hard ${isPlayer ? "-rotate-2" : "rotate-2"}`}>
         <FighterPortrait fighter={fighter} size="lg" />
       </div>
-      <p className={`headline mt-3 text-2xl sm:text-3xl ${isPlayer ? "text-cobalt" : "text-fight"}`}>{fighter.fighterName}</p>
-      <p className="text-xs italic text-ink-soft">{fighter.title}</p>
+      <p className={`headline mt-3 border-[3px] border-ink bg-card px-3 py-1 text-2xl text-ink shadow-hard sm:text-3xl ${isPlayer ? "-rotate-2" : "rotate-2"}`}>{fighter.fighterName}</p>
+      <p className="mt-2 bg-ink px-2 py-0.5 text-xs italic text-card">{fighter.title}</p>
       <span
         className={`mt-2 border-2 border-ink px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest ${typeStyle.bg} ${typeStyle.onBg}`}
       >
