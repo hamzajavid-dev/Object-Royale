@@ -1,12 +1,36 @@
 "use client";
 import { useState } from "react";
-import type { BattleFighter } from "@/lib/battle";
+import { motion } from "motion/react";
+import { MAX_ENERGY, type BattleFighter } from "@/lib/battle";
 import { ABILITY_META, EFFECT_META } from "@/lib/effectMeta";
 
 type StatusBadgesProps = {
   bf: BattleFighter;
   align?: "left" | "right";
 };
+
+/** Compact ink-pip meter: filled = gold, empty = paper-dark, with a font-mono readout. */
+function EnergyMeter({ energy, align }: { energy: number; align: "left" | "right" }) {
+  const pips = Array.from({ length: MAX_ENERGY }, (_, i) => i < energy);
+  return (
+    <div className={`flex items-center gap-1 ${align === "right" ? "flex-row-reverse" : ""}`}>
+      <motion.div
+        key={energy}
+        initial={{ scale: 0.8 }}
+        animate={{ scale: 1 }}
+        transition={{ type: "spring", stiffness: 500, damping: 20 }}
+        className={`flex gap-0.5 ${align === "right" ? "flex-row-reverse" : ""}`}
+      >
+        {pips.map((filled, i) => (
+          <span key={i} className={`h-2 w-3 border border-ink ${filled ? "bg-gold" : "bg-paper-dark"}`} />
+        ))}
+      </motion.div>
+      <span className="font-mono text-[9px] uppercase tracking-widest text-ink-soft">
+        ⚡ {energy}/{MAX_ENERGY}
+      </span>
+    </div>
+  );
+}
 
 /** Small stamped chips for active statuses, plus the equipped ability as a tappable/hoverable ink chip. */
 export default function StatusBadges({ bf, align = "left" }: StatusBadgesProps) {
@@ -22,7 +46,9 @@ export default function StatusBadges({ bf, align = "left" }: StatusBadgesProps) 
   if (s.weakened) chips.push({ key: "weak", icon: EFFECT_META.weaken.icon, label: "WEAK" });
 
   return (
-    <div className={`flex flex-wrap items-center gap-1 ${align === "right" ? "justify-end" : "justify-start"}`}>
+    <div className={`flex flex-col gap-1 ${align === "right" ? "items-end" : "items-start"}`}>
+      <EnergyMeter energy={bf.energy} align={align} />
+      <div className={`flex flex-wrap items-center gap-1 ${align === "right" ? "justify-end" : "justify-start"}`}>
       {chips.map((c) => (
         <span
           key={c.key}
@@ -50,6 +76,7 @@ export default function StatusBadges({ bf, align = "left" }: StatusBadgesProps) 
           </span>
         )}
       </button>
+      </div>
     </div>
   );
 }

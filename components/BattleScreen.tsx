@@ -4,12 +4,14 @@ import { motion, AnimatePresence } from "motion/react";
 import type { Fighter, Loadout } from "@/lib/types";
 import {
   applyMove,
+  canAfford,
   chooseCpuMove,
   canUseMove,
   createBattle,
   hpPercent,
   isStunned,
   MAX_MOVES,
+  moveCost,
   type BattleEvent,
   type BattleState,
   type Side,
@@ -48,6 +50,9 @@ const STAMP_MS = 900;
 const STAMP_GAP_MS = 450;
 
 function eventVisual(e: BattleEvent): { icon: string; bg: string; text: string } {
+  if (e.label === "EXHAUSTED!") {
+    return { icon: "⚠", bg: "bg-fight", text: "text-card" };
+  }
   if (e.kind === "effect" && e.effect) {
     const icon = EFFECT_META[e.effect].icon;
     const palette: Record<string, { bg: string; text: string }> = {
@@ -258,6 +263,11 @@ export default function BattleScreen({ player, cpu, playerLoadout, cpuLoadout, o
     const { state: next, result } = applyMove(currentState, side, moveIndex);
     const skipped = result.skipped;
     const burnKoed = skipped && result.ko;
+    // Guarantee the "EXHAUSTED!" stamp plays even if the engine doesn't push its
+    // own event for it — TurnResult.exhausted is the documented source of truth.
+    const exhaustedEvent: BattleEvent | null =
+      !skipped && result.exhausted ? { side, kind: "effect", label: "EXHAUSTED!" } : null;
+    const eventsToPlay = exhaustedEvent ? [exhaustedEvent, ...result.events] : result.events;
 
     if (skipped) {
       setAwaitingLine(false);
@@ -328,7 +338,7 @@ export default function BattleScreen({ player, cpu, playerLoadout, cpuLoadout, o
         }
       }
 
-      playEventQueue(result.events, myTurn);
+      playEventQueue(eventsToPlay, myTurn);
 
       if (next.winner) {
         sfx.ko();
@@ -381,12 +391,12 @@ export default function BattleScreen({ player, cpu, playerLoadout, cpuLoadout, o
 
         {/* corners */}
         <div className="relative flex flex-col gap-1.5 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between lg:gap-3 lg:border-y-[3px] lg:border-ink lg:bg-paper-dark lg:px-6 lg:py-4">
-          <div className="pointer-events-none absolute inset-x-6 top-3 hidden h-[2px] bg-ink/30 lg:block" />
-          <div className="pointer-events-none absolute inset-x-6 top-7 hidden h-[2px] bg-ink/30 lg:block" />
-          <div className="pointer-events-none absolute inset-x-6 top-11 hidden h-[2px] bg-ink/30 lg:block" />
+          <div className="pointer-events-none absolute inset-x-6 top-3 z-0 hidden h-[2px] bg-ink/30 lg:block" />
+          <div className="pointer-events-none absolute inset-x-6 top-7 z-0 hidden h-[2px] bg-ink/30 lg:block" />
+          <div className="pointer-events-none absolute inset-x-6 top-11 z-0 hidden h-[2px] bg-ink/30 lg:block" />
 
           {/* cpu corner (top on mobile) */}
-          <div className="flex flex-col items-end gap-1 lg:order-3 lg:w-64">
+          <div className="relative z-10 flex flex-col items-end gap-1 lg:order-3 lg:w-64">
             <div className="flex items-center gap-1.5">
               <span className={`border-2 border-ink px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest ${cpuTypeStyle.bg} ${cpuTypeStyle.onBg}`}>
                 {cpuTypeStyle.icon} {cpuTypeStyle.label}
@@ -412,7 +422,7 @@ export default function BattleScreen({ player, cpu, playerLoadout, cpuLoadout, o
           </div>
 
           {/* narration ticker */}
-          <div className="relative min-h-[64px] border-y-[3px] border-ink bg-ink px-3 py-2 lg:order-4 lg:mt-2 lg:min-h-[52px] lg:basis-full">
+          <div className="relative z-10 min-h-[64px] border-y-[3px] border-ink bg-ink px-3 py-2 lg:order-4 lg:mt-2 lg:min-h-[52px] lg:basis-full">
             <p className="font-mono text-[11px] leading-snug text-card lg:text-sm">{displayText}</p>
             {awaitingLine && (
               <motion.span
@@ -426,7 +436,7 @@ export default function BattleScreen({ player, cpu, playerLoadout, cpuLoadout, o
           </div>
 
           {/* player corner (bottom on mobile) */}
-          <div className="flex flex-col items-start gap-1 lg:order-1 lg:w-64">
+          <div className="relative z-10 flex flex-col items-start gap-1 lg:order-1 lg:w-64">
             <div className="flex items-center gap-1.5">
               <span className="border-2 border-ink bg-cobalt px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-card">YOU</span>
               <span className={`border-2 border-ink px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest ${playerTypeStyle.bg} ${playerTypeStyle.onBg}`}>
@@ -452,7 +462,7 @@ export default function BattleScreen({ player, cpu, playerLoadout, cpuLoadout, o
           </div>
 
           {/* vs marker (desktop only) */}
-          <div className="hidden lg:order-2 lg:flex lg:items-center lg:justify-center">
+          <div className="relative z-10 hidden lg:order-2 lg:flex lg:items-center lg:justify-center">
             <span className="headline -rotate-3 text-3xl text-fight">VS</span>
           </div>
         </div>
@@ -461,11 +471,14 @@ export default function BattleScreen({ player, cpu, playerLoadout, cpuLoadout, o
         <div className="mt-auto grid grid-cols-2 gap-1.5 pb-1 lg:mt-2">
           {battle.player.moves.map((move, idx) => {
             const style = TYPE_STYLES[move.type];
-            const usable = canUseMove(battle.player, idx);
             const isSpecial = Boolean(move.isSpecial);
-            const isUsedSpecial = isSpecial && battle.player.specialUsed;
+            const cost = moveCost(move);
+            const affordable = canAfford(battle.player, idx);
+            const usable = canUseMove(battle.player, idx); // special: energy >= 8; normals: always true
+            const specialLocked = isSpecial && !usable;
+            const exhaustedNormal = !isSpecial && !affordable;
             const isSuperEffective = move.type === cpu.weakness;
-            const disabled = busy || !usable || koActive;
+            const disabled = busy || koActive || specialLocked;
 
             return (
               <button
@@ -474,7 +487,7 @@ export default function BattleScreen({ player, cpu, playerLoadout, cpuLoadout, o
                 disabled={disabled}
                 onClick={() => handleMoveTap(idx)}
                 className={`press relative flex items-stretch overflow-hidden border-[3px] border-ink text-left shadow-hard ${
-                  isSpecial && !isUsedSpecial ? "bg-gold" : "bg-card"
+                  isSpecial && !specialLocked ? "bg-gold" : "bg-card"
                 } ${disabled ? "opacity-50" : ""}`}
               >
                 <div className={`flex w-9 shrink-0 items-center justify-center border-r-[3px] border-ink text-base ${style.bg} ${style.onBg}`}>
@@ -482,29 +495,45 @@ export default function BattleScreen({ player, cpu, playerLoadout, cpuLoadout, o
                 </div>
                 <div className="min-w-0 flex-1 px-1.5 py-1">
                   <div className="flex items-center justify-between gap-1">
-                    <span className={`headline truncate text-sm leading-none ${isUsedSpecial ? "text-ink-faint line-through" : "text-ink"}`}>
+                    <span className={`headline truncate text-sm leading-none ${specialLocked ? "text-ink-faint" : "text-ink"}`}>
                       {move.name}
                     </span>
-                    <span className="shrink-0 font-mono text-[10px] text-ink-soft">⚡{move.power}</span>
+                    <span className="shrink-0 font-mono text-[9px] text-ink-soft">PWR {move.power}</span>
                   </div>
-                  <div className="mt-0.5 flex items-center gap-1">
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                    {!isSpecial && (
+                      <span className="border border-ink bg-card px-1 py-0.5 font-mono text-[8px] uppercase tracking-widest text-ink">
+                        ⚡{cost}
+                      </span>
+                    )}
                     {move.effect && (
                       <span className="bg-ink px-1 py-0.5 font-mono text-[8px] uppercase tracking-widest text-card">
                         {effectTag(move.effect.kind, move.effect.chance)}
                       </span>
                     )}
                     {isSpecial && (
-                      <span className="font-mono text-[8px] uppercase tracking-widest text-ink">{isUsedSpecial ? "USED" : "★ ONCE"}</span>
+                      <span className="font-mono text-[8px] uppercase tracking-widest text-ink">★ SPECIAL ⚡{cost}</span>
+                    )}
+                    {specialLocked && (
+                      <span className="border border-ink bg-fight px-1 py-0.5 font-mono text-[8px] uppercase tracking-widest text-card">
+                        NEED ⚡{cost}
+                      </span>
+                    )}
+                    {exhaustedNormal && (
+                      <span className="border border-ink bg-fight px-1 py-0.5 font-mono text-[8px] uppercase tracking-widest text-card">
+                        EXHAUSTED · ½ DMG
+                      </span>
                     )}
                   </div>
                 </div>
 
-                {isSuperEffective && !isUsedSpecial && (
+                {isSuperEffective && !specialLocked && (
                   <span className="absolute -right-2 -top-2 rotate-3 border-2 border-ink bg-gold px-1 py-0.5 font-mono text-[8px] uppercase tracking-widest text-ink shadow-hard-sm">
                     SUPER
                   </span>
                 )}
                 {disabled && !koActive && <div className="stripes pointer-events-none absolute inset-0 opacity-15" />}
+                {exhaustedNormal && !disabled && <div className="stripes pointer-events-none absolute inset-0 opacity-10" />}
               </button>
             );
           })}

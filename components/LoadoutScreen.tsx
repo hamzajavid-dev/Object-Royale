@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import type { Ability, Fighter, Loadout, Move } from "@/lib/types";
-import { defaultLoadout } from "@/lib/battle";
+import { defaultLoadout, moveCost } from "@/lib/battle";
 import { TYPE_STYLES } from "@/lib/typeStyles";
 import { ABILITY_META, EFFECT_META, effectTag } from "@/lib/effectMeta";
 import { sfx } from "@/lib/sfx";
@@ -58,6 +58,9 @@ export default function LoadoutScreen({ player, cpu, initial, onConfirm, onBack 
     <div className="mx-auto min-h-dvh max-w-6xl px-4 pb-28 pt-5">
       <h1 className="headline -rotate-1 text-3xl text-ink lg:text-5xl">Corner Team</h1>
       <p className="font-mono text-xs uppercase tracking-widest text-fight">Build Your Kit</p>
+      <p className="mt-1 max-w-md font-mono text-[10px] normal-case leading-snug tracking-normal text-ink-soft">
+        Energy: start 5, +3 per turn. Big moves cost more. Broke? You swing at half power.
+      </p>
 
       <div className="mt-5 flex flex-col gap-6 lg:flex-row lg:items-start">
         {/* left: player + rival preview */}
@@ -214,7 +217,12 @@ function MoveCard({
       )}
       <div className="flex items-center justify-between gap-2">
         <span className="headline text-lg text-ink">{move.name}</span>
-        <span className="font-mono text-sm text-ink-soft">⚡{move.power}</span>
+        <div className="flex shrink-0 items-center gap-1">
+          <span className="font-mono text-sm text-ink-soft">PWR {move.power}</span>
+          <span className="border-[2px] border-ink bg-card px-1 py-0.5 font-mono text-[10px] uppercase tracking-widest text-ink">
+            ⚡{moveCost(move)}
+          </span>
+        </div>
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-1">
         <span
@@ -237,14 +245,15 @@ function MoveCard({
 function SpecialMoveCard({ move }: { move: Move }) {
   const typeStyle = TYPE_STYLES[move.type];
   const eff = move.effect;
+  const cost = moveCost(move);
   return (
     <div className="relative border-[3px] border-gold bg-card p-3 shadow-hard">
       <span className="absolute -top-3 left-2 -rotate-2 border-[2px] border-ink bg-gold px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-ink">
-        ★ Special · Always Equipped
+        ★ Special · Costs ⚡{cost}
       </span>
       <div className="flex items-center justify-between gap-2">
         <span className="headline text-lg text-ink">{move.name}</span>
-        <span className="font-mono text-sm text-ink-soft">⚡{move.power}</span>
+        <span className="font-mono text-sm text-ink-soft">PWR {move.power}</span>
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-1">
         <span
@@ -259,6 +268,9 @@ function SpecialMoveCard({ move }: { move: Move }) {
         )}
       </div>
       <p className="mt-1.5 text-xs text-ink-soft">{move.description}</p>
+      <p className="mt-0.5 font-mono text-[10px] uppercase tracking-widest text-ink-faint">
+        Always in your kit — no pick needed
+      </p>
     </div>
   );
 }
