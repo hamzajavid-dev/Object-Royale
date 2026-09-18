@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 
 import type { Arena } from "@/lib/types";
-import { SCAN_JSON_SCHEMA, SCAN_PROMPT, extractJson, normalizeArena } from "@/lib/scan";
+import { SCAN_PROMPT, extractJson, normalizeArena } from "@/lib/scan";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 // ~4 MB of base64 text, per the budget rules.
 const MAX_BASE64_LENGTH = 4 * 1024 * 1024;
@@ -67,10 +67,9 @@ export async function POST(req: Request): Promise<Response> {
         max_tokens: 4500,
         temperature: 0.9,
         reasoning: { enabled: false },
-        response_format: {
-          type: "json_schema",
-          json_schema: { name: "arena", strict: true, schema: SCAN_JSON_SCHEMA },
-        },
+        // Plain JSON mode: Gemini rejects the full strict schema ("too many states").
+        // The prompt describes the shape and normalizeArena repairs anything missing.
+        response_format: { type: "json_object" },
         messages: [
           {
             role: "user",
