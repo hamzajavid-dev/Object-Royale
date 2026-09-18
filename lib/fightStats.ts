@@ -28,7 +28,7 @@ export function computeFightStats(battle: BattleState): FightStats {
   for (const turn of log) {
     if (turn.superEffective) superEffectiveCount += 1;
     if (turn.crit) critCount += 1;
-    if (!biggestHit || turn.damage > biggestHit.damage) {
+    if (turn.move && (!biggestHit || turn.damage > biggestHit.damage)) {
       const attackerFighter = battle[turn.attacker].fighter;
       biggestHit = {
         by: attackerFighter.fighterName,

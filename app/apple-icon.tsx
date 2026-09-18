@@ -13,8 +13,8 @@ export default function AppleIcon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#0a0a12",
-          backgroundImage: "radial-gradient(circle at 50% 50%, rgba(255,46,136,0.45), rgba(10,10,18,0) 65%)",
+          background: "#eee6d3",
+          backgroundImage: "radial-gradient(rgba(20,18,16,0.18) 2px, transparent 2.5px)", backgroundSize: "18px 18px",
         }}
       >
         <div
@@ -24,9 +24,9 @@ export default function AppleIcon() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            borderRadius: 32,
-            border: "8px solid #ff2e88",
-            background: "#0a0a12",
+            borderRadius: 8, boxShadow: "6px 6px 0 0 #e23b26",
+            border: "8px solid #141210",
+            background: "#eee6d3",
           }}
         >
           <div style={{ fontSize: 92, lineHeight: 1, display: "flex" }}>⚔️</div>
