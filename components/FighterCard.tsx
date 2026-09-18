@@ -2,6 +2,7 @@
 import { motion } from "motion/react";
 import type { Fighter } from "@/lib/types";
 import { TYPE_STYLES } from "@/lib/typeStyles";
+import { ABILITY_META } from "@/lib/effectMeta";
 import FighterPortrait from "./FighterPortrait";
 
 type FighterCardProps = {
@@ -15,49 +16,64 @@ export default function FighterCard({ fighter, selectedAs, onTap, index }: Fight
   const typeStyle = TYPE_STYLES[fighter.type];
   const weaknessStyle = TYPE_STYLES[fighter.weakness];
 
-  const borderClass =
-    selectedAs === "player"
-      ? "border-neon-cyan shadow-[0_0_24px_rgba(34,211,238,.55)]"
-      : selectedAs === "opponent"
-      ? "border-neon-pink shadow-[0_0_24px_rgba(255,46,136,.55)]"
-      : "border-panel-edge";
+  const outline =
+    selectedAs === "player" ? "border-cobalt" : selectedAs === "opponent" ? "border-rival" : "border-ink";
 
   return (
     <motion.button
       type="button"
       onClick={onTap}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0, scale: selectedAs ? 1.03 : 1 }}
-      transition={{ duration: 0.35, delay: index * 0.07, scale: { duration: 0.15, delay: 0 } }}
-      whileTap={{ scale: 0.96 }}
-      className={`relative bg-panel rounded-2xl border-2 p-3 text-left ${borderClass}`}
+      initial={{ opacity: 0, y: 30, rotate: -6 }}
+      animate={{
+        opacity: 1,
+        y: 0,
+        rotate: selectedAs === "player" ? -1 : selectedAs === "opponent" ? 1 : 0,
+        scale: selectedAs ? 1.03 : 1,
+      }}
+      transition={{ type: "spring", stiffness: 500, damping: 26, delay: index * 0.05 }}
+      className={`press relative w-full border-[3px] bg-card p-3 text-left shadow-hard ${outline}`}
     >
       {selectedAs === "player" && (
-        <span className="absolute -top-2 -left-2 z-10 rounded-full bg-neon-cyan px-2 py-0.5 font-display text-[10px] text-black">
-          P1
+        <span className="absolute -top-3 -left-3 z-10 -rotate-3 border-[2px] border-ink bg-cobalt px-2 py-0.5 font-mono text-[11px] uppercase tracking-widest text-card">
+          You
         </span>
       )}
       {selectedAs === "opponent" && (
-        <span className="absolute -top-2 -left-2 z-10 rounded-full bg-neon-pink px-2 py-0.5 font-display text-[10px] text-black">
-          CPU
+        <span className="absolute -top-3 -left-3 z-10 rotate-3 border-[2px] border-ink bg-rival px-2 py-0.5 font-mono text-[11px] uppercase tracking-widest text-card">
+          Rival
         </span>
       )}
 
-      <FighterPortrait fighter={fighter} size="md" />
+      <FighterPortrait fighter={fighter} size="md" className="mx-auto" />
 
-      <p className="mt-2 truncate font-display text-base text-white">{fighter.fighterName}</p>
-      <p className="truncate text-xs italic text-neutral-400">{fighter.title}</p>
+      <p className="headline mt-2 truncate text-xl text-ink">{fighter.fighterName}</p>
+      <p className="truncate text-xs italic text-ink-soft">{fighter.title}</p>
 
-      <div className="mt-2 flex items-center gap-1.5">
-        <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold text-black ${typeStyle.bg}`}>
+      <div className="mt-2 flex flex-wrap items-center gap-1">
+        <span
+          className={`inline-flex items-center gap-1 border-[2px] border-ink px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest ${typeStyle.bg} ${typeStyle.onBg}`}
+        >
           {typeStyle.icon} {typeStyle.label}
         </span>
-        <span className="inline-flex items-center gap-1 rounded bg-panel-edge px-1.5 py-0.5 text-[10px] text-neutral-300">
-          WEAK: {weaknessStyle.icon}
+        <span
+          className={`inline-flex items-center gap-1 border-[2px] border-ink px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest ${weaknessStyle.bg} ${weaknessStyle.onBg}`}
+        >
+          WEAK {weaknessStyle.icon}
         </span>
       </div>
 
-      <p className="mt-1 text-right font-display text-sm text-white">❤️ {fighter.hp}</p>
+      <div className="mt-2 flex items-center justify-between font-mono text-[11px] text-ink-soft">
+        <span>{fighter.moves.length} MOVES</span>
+        <span className="flex items-center gap-1 text-sm">
+          {fighter.abilities.map((a) => (
+            <span key={a.name} title={a.name} aria-label={a.name}>
+              {ABILITY_META[a.kind].icon}
+            </span>
+          ))}
+        </span>
+      </div>
+
+      <p className="mt-1 text-right font-mono text-sm text-ink">HP {fighter.hp}</p>
     </motion.button>
   );
 }
