@@ -1,14 +1,16 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import type { Fighter } from "@/lib/types";
+import type { Fighter, Loadout } from "@/lib/types";
 import {
   applyMove,
   chooseCpuMove,
   canUseMove,
   createBattle,
   hpPercent,
+  isStunned,
   MAX_MOVES,
+  type BattleEvent,
   type BattleState,
   type Side,
 } from "@/lib/battle";
@@ -17,93 +19,162 @@ import type { NarrateInput } from "@/lib/narrate";
 import { speak, unlockSpeech } from "@/lib/speak";
 import { sfx, unlockAudio } from "@/lib/sfx";
 import { TYPE_STYLES } from "@/lib/typeStyles";
+import { EFFECT_META, effectTag } from "@/lib/effectMeta";
 import FighterPortrait from "./FighterPortrait";
 import HealthBar from "./HealthBar";
 import DamagePopup from "./DamagePopup";
 import SoundToggles from "./SoundToggles";
+import StatusBadges from "./StatusBadges";
 
 type BattleScreenProps = {
   player: Fighter;
   cpu: Fighter;
+  playerLoadout: Loadout;
+  cpuLoadout: Loadout;
   onFinish: (battle: BattleState) => void;
 };
 
 type HitInfo = { side: Side; id: number };
 type PopupInfo = { side: Side; amount: number; crit: boolean; superEffective: boolean; id: number };
-type BannerInfo = { id: number; text: string; color: "pink" | "yellow" };
+type BannerInfo = { id: number; text: string; kind: "crit" | "super" };
+type Stamp = { id: number; icon: string; label: string; bg: string; text: string };
 
 const IMPACT_MS = 250;
-const CPU_THINK_MS = 1600;
+const CPU_THINK_MS = 1400;
+const STUN_SKIP_MS = 1100;
 const KO_HOLD_MS = 2200;
 const BANNER_MS = 900;
+const STAMP_MS = 900;
+const STAMP_GAP_MS = 450;
+
+function eventVisual(e: BattleEvent): { icon: string; bg: string; text: string } {
+  if (e.kind === "effect" && e.effect) {
+    const icon = EFFECT_META[e.effect].icon;
+    const palette: Record<string, { bg: string; text: string }> = {
+      burn: { bg: "bg-fight", text: "text-card" },
+      stun: { bg: "bg-gold", text: "text-ink" },
+      shield: { bg: "bg-cobalt", text: "text-card" },
+      heal: { bg: "bg-hp-high", text: "text-ink" },
+      drain: { bg: "bg-hp-high", text: "text-ink" },
+      boost: { bg: "bg-gold", text: "text-ink" },
+      weaken: { bg: "bg-ink", text: "text-card" },
+    };
+    return { icon, ...(palette[e.effect] ?? { bg: "bg-ink", text: "text-card" }) };
+  }
+  switch (e.kind) {
+    case "burn_tick":
+      return { icon: "🔥", bg: "bg-fight", text: "text-card" };
+    case "regen":
+      return { icon: "🌱", bg: "bg-hp-high", text: "text-ink" };
+    case "stunned":
+      return { icon: "💫", bg: "bg-gold", text: "text-ink" };
+    case "thorns":
+      return { icon: "🌵", bg: "bg-fight", text: "text-card" };
+    case "last_stand":
+      return { icon: "🪦", bg: "bg-gold", text: "text-ink" };
+    case "heal":
+      return { icon: "✚", bg: "bg-hp-high", text: "text-ink" };
+    case "drain":
+      return { icon: "🩸", bg: "bg-hp-high", text: "text-ink" };
+    case "ability":
+      return { icon: "⚡", bg: "bg-ink", text: "text-card" };
+    default:
+      return { icon: "", bg: "bg-ink", text: "text-card" };
+  }
+}
 
 function FighterStage({
   side,
   fighter,
   attacking,
+  wobbling,
   hitId,
   popup,
+  stamps,
   isLoser,
   koActive,
 }: {
   side: Side;
   fighter: Fighter;
   attacking: boolean;
+  wobbling: boolean;
   hitId: number | null;
   popup: PopupInfo | null;
+  stamps: Stamp[];
   isLoser: boolean;
   koActive: boolean;
 }) {
   const lungeAnimate =
-    side === "player" ? { x: [0, 18, 0], y: [0, -14, 0] } : { x: [0, -18, 0], y: [0, 14, 0] };
+    side === "player" ? { x: [0, 16, 0], y: [0, -10, 0] } : { x: [0, -16, 0], y: [0, 10, 0] };
 
   return (
     <div className="relative">
       <motion.div
         animate={
           isLoser && koActive
-            ? { rotate: 90, y: 30, opacity: 0.4, filter: "grayscale(1)" }
-            : attacking
-              ? lungeAnimate
-              : { x: 0, y: 0 }
+            ? { rotate: 85, y: 24, opacity: 0.35, filter: "grayscale(1)" }
+            : wobbling
+              ? { rotate: [0, -6, 6, -4, 4, 0] }
+              : attacking
+                ? lungeAnimate
+                : { x: 0, y: 0, rotate: 0 }
         }
-        transition={isLoser && koActive ? { duration: 0.6, ease: "easeIn" } : { duration: 0.25, ease: "easeOut" }}
+        transition={
+          isLoser && koActive
+            ? { duration: 0.6, ease: "easeIn" }
+            : { duration: wobbling ? 0.6 : 0.25, ease: "easeOut" }
+        }
       >
         <motion.div
           key={hitId ?? "idle"}
-          animate={hitId !== null ? { x: [0, -12, 12, -8, 8, -4, 4, 0] } : { x: 0 }}
-          transition={{ duration: 0.4 }}
+          animate={hitId !== null ? { x: [0, -10, 10, -6, 6, -3, 3, 0] } : { x: 0 }}
+          transition={{ duration: 0.35 }}
         >
-          <FighterPortrait fighter={fighter} size="md" />
+          <motion.div
+            animate={{ filter: hitId !== null ? ["invert(0)", "invert(1)", "invert(0)"] : "invert(0)" }}
+            transition={{ duration: 0.32, times: hitId !== null ? [0, 0.25, 1] : undefined }}
+          >
+            <FighterPortrait fighter={fighter} size="lg" />
+          </motion.div>
         </motion.div>
       </motion.div>
 
-      <AnimatePresence>
-        {hitId !== null && (
-          <motion.div
-            key={`flash-${hitId}`}
-            initial={{ opacity: 0.6 }}
-            animate={{ opacity: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="pointer-events-none absolute inset-0 rounded-xl bg-red-500/60"
-          />
-        )}
-      </AnimatePresence>
-
-      {popup && (
-        <DamagePopup amount={popup.amount} crit={popup.crit} superEffective={popup.superEffective} id={popup.id} />
+      {wobbling && (
+        <span className="pointer-events-none absolute -top-3 left-1/2 -translate-x-1/2 -rotate-3 border-2 border-ink bg-gold px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-ink shadow-hard-sm">
+          💫 STUNNED
+        </span>
       )}
+
+      {popup && <DamagePopup amount={popup.amount} crit={popup.crit} superEffective={popup.superEffective} id={popup.id} />}
+
+      <div className="pointer-events-none absolute inset-0">
+        <AnimatePresence>
+          {stamps.map((s, i) => (
+            <motion.span
+              key={s.id}
+              initial={{ opacity: 0, y: 0, scale: 0.6, rotate: i % 2 === 0 ? -6 : 6 }}
+              animate={{ opacity: 1, y: -18 - i * 8, scale: 1 }}
+              exit={{ opacity: 0, y: -36 - i * 8 }}
+              transition={{ duration: 0.3 }}
+              className={`absolute left-1/2 top-1/2 -translate-x-1/2 whitespace-nowrap border-2 border-ink px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest shadow-hard-sm ${s.bg} ${s.text}`}
+            >
+              {s.icon} {s.label}
+            </motion.span>
+          ))}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
 
-export default function BattleScreen({ player, cpu, onFinish }: BattleScreenProps) {
-  const [battle, setBattle] = useState<BattleState>(() => createBattle(player, cpu));
+export default function BattleScreen({ player, cpu, playerLoadout, cpuLoadout, onFinish }: BattleScreenProps) {
+  const [battle, setBattle] = useState<BattleState>(() => createBattle(player, cpu, playerLoadout, cpuLoadout));
   const [busy, setBusy] = useState(false);
   const [attackingSide, setAttackingSide] = useState<Side | null>(null);
+  const [wobbleSide, setWobbleSide] = useState<Side | null>(null);
   const [hitInfo, setHitInfo] = useState<HitInfo | null>(null);
   const [popup, setPopup] = useState<PopupInfo | null>(null);
+  const [stampsBySide, setStampsBySide] = useState<Record<Side, Stamp[]>>({ player: [], cpu: [] });
   const [banner, setBanner] = useState<BannerInfo | null>(null);
   const [displayText, setDisplayText] = useState("");
   const [awaitingLine, setAwaitingLine] = useState(false);
@@ -157,6 +228,23 @@ export default function BattleScreen({ player, cpu, onFinish }: BattleScreenProp
     };
   }, []);
 
+  function addStamp(side: Side, event: BattleEvent, uid: number) {
+    const v = eventVisual(event);
+    const stamp: Stamp = { id: uid, icon: v.icon, label: event.label, bg: v.bg, text: v.text };
+    setStampsBySide((prev) => ({ ...prev, [side]: [...prev[side], stamp] }));
+    schedule(() => {
+      setStampsBySide((prev) => ({ ...prev, [side]: prev[side].filter((s) => s.id !== uid) }));
+    }, STAMP_MS);
+  }
+
+  function playEventQueue(events: BattleEvent[], turn: number) {
+    events.forEach((e, i) => {
+      schedule(() => {
+        addStamp(e.side, e, turn * 1000 + i);
+      }, (i + 1) * STAMP_GAP_MS);
+    });
+  }
+
   function playTurn(side: Side, moveIndex: number, currentState: BattleState) {
     if (currentState.winner) return;
     setBusy(true);
@@ -168,66 +256,97 @@ export default function BattleScreen({ player, cpu, onFinish }: BattleScreenProp
     const defenderFighter = side === "player" ? cpu : player;
 
     const { state: next, result } = applyMove(currentState, side, moveIndex);
+    const skipped = result.skipped;
+    const burnKoed = skipped && result.ko;
 
-    setAttackingSide(side);
-
-    setAwaitingLine(true);
-    const narrateInput: NarrateInput = {
-      attackerName: attackerFighter.fighterName,
-      attackerObject: attackerFighter.objectName,
-      defenderName: defenderFighter.fighterName,
-      defenderObject: defenderFighter.objectName,
-      moveName: result.move.name,
-      moveDescription: result.move.description,
-      damage: result.damage,
-      superEffective: result.superEffective,
-      crit: result.crit,
-      ko: result.ko,
-      attackerHpPct: hpPercent(next[side]),
-      defenderHpPct: hpPercent(next[defenderSide]),
-      moveNumber: next.moveCount,
-    };
-    getNarration(narrateInput).then((line) => {
-      if (turnIdRef.current !== myTurn) return; // stale — a newer turn has already started
+    if (skipped) {
       setAwaitingLine(false);
+      const line = burnKoed
+        ? `${attackerFighter.fighterName} succumbs to the burn and can't continue!`
+        : `${attackerFighter.fighterName} is seeing stars and skips the turn!`;
       typeLine(line, myTurn);
       speak(line);
-    });
+    } else {
+      setAttackingSide(side);
+      setAwaitingLine(true);
+      const move = result.move;
+      const effectEvent = result.events.find((e) => e.kind === "effect");
+      // `effectLabel` is being added to NarrateInput by the engine agent; the
+      // intersection keeps this file typechecking clean before and after that lands.
+      const narrateInput: NarrateInput & { effectLabel?: string } = {
+        attackerName: attackerFighter.fighterName,
+        attackerObject: attackerFighter.objectName,
+        defenderName: defenderFighter.fighterName,
+        defenderObject: defenderFighter.objectName,
+        moveName: move ? move.name : "",
+        moveDescription: move ? move.description : "",
+        damage: result.damage,
+        superEffective: result.superEffective,
+        crit: result.crit,
+        ko: result.ko,
+        attackerHpPct: hpPercent(next[side]),
+        defenderHpPct: hpPercent(next[defenderSide]),
+        moveNumber: next.moveCount,
+        effectLabel: effectEvent?.label,
+      };
+      getNarration(narrateInput).then((line) => {
+        if (turnIdRef.current !== myTurn) return; // stale — a newer turn has already started
+        setAwaitingLine(false);
+        typeLine(line, myTurn);
+        speak(line);
+      });
+    }
 
     schedule(() => {
       setAttackingSide(null);
       setBattle(next);
-      setHitInfo({ side: defenderSide, id: myTurn });
-      setPopup({ side: defenderSide, amount: result.damage, crit: result.crit, superEffective: result.superEffective, id: myTurn });
 
-      if (result.crit) sfx.crit();
-      else if (result.superEffective) sfx.superHit();
-      else sfx.hit();
+      if (skipped) {
+        if (!burnKoed) {
+          setWobbleSide(side);
+          schedule(() => {
+            setWobbleSide((w) => (w === side ? null : w));
+          }, STAMP_MS);
+        }
+      } else {
+        setHitInfo({ side: defenderSide, id: myTurn });
+        setPopup({ side: defenderSide, amount: result.damage, crit: result.crit, superEffective: result.superEffective, id: myTurn });
 
-      if (result.crit || result.superEffective) {
-        setBanner({
-          id: myTurn,
-          text: result.crit ? "CRITICAL HIT!" : "SUPER EFFECTIVE!",
-          color: result.crit ? "pink" : "yellow",
-        });
-        schedule(() => {
-          setBanner((b) => (b && b.id === myTurn ? null : b));
-        }, BANNER_MS);
+        if (result.crit) sfx.crit();
+        else if (result.superEffective) sfx.superHit();
+        else sfx.hit();
+
+        if (result.crit || result.superEffective) {
+          setBanner({ id: myTurn, text: result.crit ? "CRITICAL HIT!" : "SUPER EFFECTIVE!", kind: result.crit ? "crit" : "super" });
+          schedule(() => {
+            setBanner((b) => (b && b.id === myTurn ? null : b));
+          }, BANNER_MS);
+        }
+
+        if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+          navigator.vibrate(result.crit ? [40, 30, 60] : 35);
+        }
       }
 
-      if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
-        navigator.vibrate(result.crit ? [40, 30, 60] : 35);
-      }
+      playEventQueue(result.events, myTurn);
 
       if (next.winner) {
         sfx.ko();
         schedule(() => {
           onFinishRef.current(next);
         }, KO_HOLD_MS);
-      } else if (side === "player") {
+        return;
+      }
+
+      if (side === "player") {
         schedule(() => {
           playTurn("cpu", chooseCpuMove(next), next);
         }, CPU_THINK_MS);
+      } else if (isStunned(next, "player")) {
+        // Never leave the buttons stuck: auto-skip the player's turn while stunned.
+        schedule(() => {
+          playTurn("player", 0, next);
+        }, STUN_SKIP_MS);
       } else {
         setBusy(false);
       }
@@ -250,134 +369,146 @@ export default function BattleScreen({ player, cpu, onFinish }: BattleScreenProp
   const koActive = battle.winner !== null;
 
   return (
-    <div className="no-select flex min-h-dvh flex-col gap-1.5 p-3">
-      {/* top bar */}
-      <div className="flex items-center justify-between">
-        <span className="font-display text-xs text-neutral-400">
-          MOVE {moveNumber}/{MAX_MOVES}
-        </span>
-        <SoundToggles />
-      </div>
-
-      {/* cpu panel */}
-      <div>
-        <div className="flex items-center justify-end gap-2">
-          <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold text-black ${cpuTypeStyle.bg}`}>
-            {cpuTypeStyle.icon} {cpuTypeStyle.label}
+    <div className="no-select flex h-dvh flex-col gap-1.5 overflow-hidden p-2 lg:h-auto lg:min-h-dvh lg:items-center lg:overflow-visible lg:py-6">
+      <div className="flex w-full flex-1 flex-col gap-1.5 lg:max-w-5xl lg:flex-none lg:gap-3">
+        {/* top bar */}
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-ink-soft">
+            MOVE {moveNumber}/{MAX_MOVES}
           </span>
-          <span className="font-display text-lg neon-pink">{cpu.fighterName}</span>
+          <SoundToggles />
         </div>
-        <div className="mt-1">
-          <HealthBar hp={battle.cpu.hp} maxHp={battle.cpu.maxHp} align="right" />
+
+        {/* corners */}
+        <div className="relative flex flex-col gap-1.5 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between lg:gap-3 lg:border-y-[3px] lg:border-ink lg:bg-paper-dark lg:px-6 lg:py-4">
+          <div className="pointer-events-none absolute inset-x-6 top-3 hidden h-[2px] bg-ink/30 lg:block" />
+          <div className="pointer-events-none absolute inset-x-6 top-7 hidden h-[2px] bg-ink/30 lg:block" />
+          <div className="pointer-events-none absolute inset-x-6 top-11 hidden h-[2px] bg-ink/30 lg:block" />
+
+          {/* cpu corner (top on mobile) */}
+          <div className="flex flex-col items-end gap-1 lg:order-3 lg:w-64">
+            <div className="flex items-center gap-1.5">
+              <span className={`border-2 border-ink px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest ${cpuTypeStyle.bg} ${cpuTypeStyle.onBg}`}>
+                {cpuTypeStyle.icon} {cpuTypeStyle.label}
+              </span>
+              <span className="border-2 border-ink bg-rival px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-card">RIVAL</span>
+            </div>
+            <span className="headline rotate-1 text-xl text-ink lg:text-2xl">{cpu.fighterName}</span>
+            <FighterStage
+              side="cpu"
+              fighter={cpu}
+              attacking={attackingSide === "cpu"}
+              wobbling={wobbleSide === "cpu"}
+              hitId={hitInfo?.side === "cpu" ? hitInfo.id : null}
+              popup={popup?.side === "cpu" ? popup : null}
+              stamps={stampsBySide.cpu}
+              isLoser={koActive && battle.winner !== "cpu"}
+              koActive={koActive}
+            />
+            <div className="w-full max-w-[180px]">
+              <HealthBar hp={battle.cpu.hp} maxHp={battle.cpu.maxHp} align="right" />
+            </div>
+            <StatusBadges bf={battle.cpu} align="right" />
+          </div>
+
+          {/* narration ticker */}
+          <div className="relative min-h-[64px] border-y-[3px] border-ink bg-ink px-3 py-2 lg:order-4 lg:mt-2 lg:min-h-[52px] lg:basis-full">
+            <p className="font-mono text-[11px] leading-snug text-card lg:text-sm">{displayText}</p>
+            {awaitingLine && (
+              <motion.span
+                className="absolute right-3 top-2 text-sm"
+                animate={{ opacity: [1, 0.3, 1] }}
+                transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+              >
+                🎙️
+              </motion.span>
+            )}
+          </div>
+
+          {/* player corner (bottom on mobile) */}
+          <div className="flex flex-col items-start gap-1 lg:order-1 lg:w-64">
+            <div className="flex items-center gap-1.5">
+              <span className="border-2 border-ink bg-cobalt px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-card">YOU</span>
+              <span className={`border-2 border-ink px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest ${playerTypeStyle.bg} ${playerTypeStyle.onBg}`}>
+                {playerTypeStyle.icon} {playerTypeStyle.label}
+              </span>
+            </div>
+            <span className="headline -rotate-1 text-xl text-ink lg:text-2xl">{player.fighterName}</span>
+            <FighterStage
+              side="player"
+              fighter={player}
+              attacking={attackingSide === "player"}
+              wobbling={wobbleSide === "player"}
+              hitId={hitInfo?.side === "player" ? hitInfo.id : null}
+              popup={popup?.side === "player" ? popup : null}
+              stamps={stampsBySide.player}
+              isLoser={koActive && battle.winner !== "player"}
+              koActive={koActive}
+            />
+            <div className="w-full max-w-[180px]">
+              <HealthBar hp={battle.player.hp} maxHp={battle.player.maxHp} align="left" />
+            </div>
+            <StatusBadges bf={battle.player} align="left" />
+          </div>
+
+          {/* vs marker (desktop only) */}
+          <div className="hidden lg:order-2 lg:flex lg:items-center lg:justify-center">
+            <span className="headline -rotate-3 text-3xl text-fight">VS</span>
+          </div>
         </div>
-        <div className="mt-2 flex justify-end">
-          <FighterStage
-            side="cpu"
-            fighter={cpu}
-            attacking={attackingSide === "cpu"}
-            hitId={hitInfo?.side === "cpu" ? hitInfo.id : null}
-            popup={popup?.side === "cpu" ? popup : null}
-            isLoser={koActive && battle.winner !== "cpu"}
-            koActive={koActive}
-          />
-        </div>
-      </div>
 
-      {/* narration box */}
-      <div className="relative min-h-[88px] rounded-2xl border-2 border-panel-edge bg-panel p-4">
-        <p className="font-body text-sm leading-relaxed text-neutral-100">{displayText}</p>
-        {awaitingLine && (
-          <motion.span
-            className="absolute right-3 top-3 text-lg"
-            animate={{ opacity: [1, 0.3, 1] }}
-            transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
-          >
-            🎙️
-          </motion.span>
-        )}
-      </div>
+        {/* move buttons */}
+        <div className="mt-auto grid grid-cols-2 gap-1.5 pb-1 lg:mt-2">
+          {battle.player.moves.map((move, idx) => {
+            const style = TYPE_STYLES[move.type];
+            const usable = canUseMove(battle.player, idx);
+            const isSpecial = Boolean(move.isSpecial);
+            const isUsedSpecial = isSpecial && battle.player.specialUsed;
+            const isSuperEffective = move.type === cpu.weakness;
+            const disabled = busy || !usable || koActive;
 
-      {/* player panel */}
-      <div>
-        <div className="flex justify-start">
-          <FighterStage
-            side="player"
-            fighter={player}
-            attacking={attackingSide === "player"}
-            hitId={hitInfo?.side === "player" ? hitInfo.id : null}
-            popup={popup?.side === "player" ? popup : null}
-            isLoser={koActive && battle.winner !== "player"}
-            koActive={koActive}
-          />
-        </div>
-        <div className="mt-2 flex items-center gap-2">
-          <span className="font-display text-lg neon-cyan">{player.fighterName}</span>
-          <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold text-black ${playerTypeStyle.bg}`}>
-            {playerTypeStyle.icon} {playerTypeStyle.label}
-          </span>
-        </div>
-        <div className="mt-1">
-          <HealthBar hp={battle.player.hp} maxHp={battle.player.maxHp} align="left" />
-        </div>
-      </div>
+            return (
+              <button
+                key={move.name}
+                type="button"
+                disabled={disabled}
+                onClick={() => handleMoveTap(idx)}
+                className={`press relative flex items-stretch overflow-hidden border-[3px] border-ink text-left shadow-hard ${
+                  isSpecial && !isUsedSpecial ? "bg-gold" : "bg-card"
+                } ${disabled ? "opacity-50" : ""}`}
+              >
+                <div className={`flex w-9 shrink-0 items-center justify-center border-r-[3px] border-ink text-base ${style.bg} ${style.onBg}`}>
+                  {style.icon}
+                </div>
+                <div className="min-w-0 flex-1 px-1.5 py-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className={`headline truncate text-sm leading-none ${isUsedSpecial ? "text-ink-faint line-through" : "text-ink"}`}>
+                      {move.name}
+                    </span>
+                    <span className="shrink-0 font-mono text-[10px] text-ink-soft">⚡{move.power}</span>
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-1">
+                    {move.effect && (
+                      <span className="bg-ink px-1 py-0.5 font-mono text-[8px] uppercase tracking-widest text-card">
+                        {effectTag(move.effect.kind, move.effect.chance)}
+                      </span>
+                    )}
+                    {isSpecial && (
+                      <span className="font-mono text-[8px] uppercase tracking-widest text-ink">{isUsedSpecial ? "USED" : "★ ONCE"}</span>
+                    )}
+                  </div>
+                </div>
 
-      {/* move buttons */}
-      <div className="mt-auto flex flex-col gap-1.5 pt-1">
-        {player.moves.map((move, idx) => {
-          const style = TYPE_STYLES[move.type];
-          const usable = canUseMove(battle.player, idx);
-          const isUsedSpecial = Boolean(move.isSpecial) && battle.player.specialUsed;
-          const isSuperEffective = move.type === cpu.weakness;
-          const disabled = busy || !usable || koActive;
-
-          return (
-            <button
-              key={move.name}
-              type="button"
-              disabled={disabled}
-              onClick={() => handleMoveTap(idx)}
-              className={`relative overflow-hidden rounded-xl border-2 bg-panel px-4 py-2.5 text-left transition-opacity ${
-                isUsedSpecial ? "border-neutral-700" : style.border
-              } ${disabled ? "opacity-40" : "opacity-100"}`}
-            >
-              {move.isSpecial && !isUsedSpecial && (
-                <motion.div
-                  className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-neon-yellow/10 to-transparent"
-                  animate={{ x: ["-100%", "100%"] }}
-                  transition={{ duration: 1.8, repeat: Infinity, ease: "linear" }}
-                />
-              )}
-
-              {move.isSpecial && !isUsedSpecial && (
-                <span className="absolute -top-2 right-3 rounded-full bg-neon-yellow px-2 py-0.5 font-display text-[9px] text-black shadow-[0_0_12px_rgba(250,204,21,.7)]">
-                  ★ SPECIAL · ONCE
-                </span>
-              )}
-              {isUsedSpecial && (
-                <span className="absolute -top-2 right-3 rounded-full bg-neutral-600 px-2 py-0.5 font-display text-[9px] text-white">
-                  USED
-                </span>
-              )}
-
-              <div className="relative flex items-center justify-between">
-                <span className={`font-display text-sm ${isUsedSpecial ? "text-neutral-500" : "text-white"}`}>
-                  {style.icon} {move.name}
-                </span>
-                <span className={`font-display text-sm ${isUsedSpecial ? "text-neutral-500" : "text-neutral-300"}`}>
-                  ⚡{move.power}
-                </span>
-              </div>
-              <div className="relative mt-0.5 flex items-center gap-2">
-                <p className="truncate text-xs text-neutral-400">{move.description}</p>
-                {isSuperEffective && (
-                  <span className="shrink-0 rounded bg-neon-yellow/20 px-1.5 py-0.5 text-[9px] font-bold text-neon-yellow">
-                    SUPER EFFECTIVE
+                {isSuperEffective && !isUsedSpecial && (
+                  <span className="absolute -right-2 -top-2 rotate-3 border-2 border-ink bg-gold px-1 py-0.5 font-mono text-[8px] uppercase tracking-widest text-ink shadow-hard-sm">
+                    SUPER
                   </span>
                 )}
-              </div>
-            </button>
-          );
-        })}
+                {disabled && !koActive && <div className="stripes pointer-events-none absolute inset-0 opacity-15" />}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* crit / super-effective banner */}
@@ -388,14 +519,16 @@ export default function BattleScreen({ player, cpu, onFinish }: BattleScreenProp
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
+            transition={{ duration: 0.2 }}
             className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center"
           >
             <motion.span
-              initial={{ scale: 0.5, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 260, damping: 16 }}
-              className={`font-display text-3xl ${banner.color === "pink" ? "neon-pink" : "neon-yellow"}`}
+              initial={{ scale: 1.6, opacity: 0, rotate: banner.kind === "crit" ? -6 : 4 }}
+              animate={{ scale: 1, opacity: 1, rotate: banner.kind === "crit" ? -3 : 2 }}
+              transition={{ type: "spring", stiffness: 500, damping: 22 }}
+              className={`headline border-[3px] border-ink px-4 py-1 text-2xl shadow-hard-lg lg:text-4xl ${
+                banner.kind === "crit" ? "bg-fight text-card" : "bg-gold text-ink"
+              }`}
             >
               {banner.text}
             </motion.span>
@@ -410,15 +543,15 @@ export default function BattleScreen({ player, cpu, onFinish }: BattleScreenProp
             key="ko-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center"
+            className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-paper/40"
           >
             <motion.span
-              initial={{ scale: 3, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 200, damping: 14 }}
-              className="font-display text-6xl neon-pink drop-shadow-[0_0_30px_rgba(255,46,136,.8)]"
+              initial={{ scale: 1.4, opacity: 0, rotate: -6 }}
+              animate={{ scale: 1, opacity: 1, rotate: -2 }}
+              transition={{ type: "spring", stiffness: 500, damping: 22 }}
+              className="misprint headline text-6xl text-fight lg:text-8xl"
             >
-              {battle.winMethod === "decision" ? "DECISION!" : "K.O.!"}
+              {battle.winMethod === "decision" ? "DECISION!" : "K.O."}
             </motion.span>
           </motion.div>
         )}

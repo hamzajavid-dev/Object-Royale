@@ -30,12 +30,12 @@ export default function SoundToggles() {
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5">
       <button
         type="button"
         onClick={toggleSfx}
         aria-label={sfxOn ? "Mute sound effects" : "Unmute sound effects"}
-        className="flex h-8 w-8 items-center justify-center rounded-lg border-2 border-panel-edge bg-panel text-base"
+        className="press flex h-8 w-8 items-center justify-center border-[3px] border-ink bg-card text-sm shadow-hard-sm"
       >
         {sfxOn ? "🔊" : "🔇"}
       </button>
@@ -43,7 +43,7 @@ export default function SoundToggles() {
         type="button"
         onClick={toggleVoice}
         aria-label={voiceOn ? "Mute commentator voice" : "Unmute commentator voice"}
-        className="flex h-8 w-8 items-center justify-center rounded-lg border-2 border-panel-edge bg-panel text-base"
+        className="press flex h-8 w-8 items-center justify-center border-[3px] border-ink bg-card text-sm shadow-hard-sm"
       >
         {voiceOn ? "🗣️" : "🤐"}
       </button>

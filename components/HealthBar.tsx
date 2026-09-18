@@ -15,10 +15,10 @@ export default function HealthBar({ hp, maxHp, align }: HealthBarProps) {
 
   return (
     <div className="w-full">
-      <div className="relative h-4 w-full overflow-hidden rounded-full border-2 border-panel-edge bg-black/60">
+      <div className="relative h-4 w-full overflow-hidden border-[3px] border-ink bg-paper-dark">
         {/* ghost layer: drains slowly, after a delay */}
         <motion.div
-          className="absolute inset-y-0 bg-white/40"
+          className="absolute inset-y-0 bg-ink-faint"
           style={{ [origin]: 0 }}
           initial={false}
           animate={{ width: `${pct}%` }}
@@ -29,22 +29,23 @@ export default function HealthBar({ hp, maxHp, align }: HealthBarProps) {
           className={`absolute inset-y-0 ${colorClass}`}
           style={{ [origin]: 0 }}
           initial={false}
-          animate={{ width: `${pct}%`, opacity: danger ? [1, 0.5, 1] : 1 }}
+          animate={{ width: `${pct}%`, opacity: danger ? [1, 0.4, 1] : 1 }}
           transition={
             danger
-              ? { width: { duration: 0.2, ease: "easeOut" }, opacity: { duration: 0.9, repeat: Infinity, ease: "easeInOut" } }
+              ? { width: { duration: 0.2, ease: "easeOut" }, opacity: { duration: 0.8, repeat: Infinity, ease: "easeInOut" } }
               : { duration: 0.2, ease: "easeOut" }
           }
         />
         {/* segment ticks overlay */}
-        <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0_18px,rgba(0,0,0,.35)_18px_20px)]" />
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage: "repeating-linear-gradient(90deg, transparent 0 18px, rgba(20,18,16,0.35) 18px 20px)",
+          }}
+        />
       </div>
-      <p
-        className={`mt-0.5 font-display text-[10px] text-neutral-300 ${
-          align === "right" ? "text-right" : "text-left"
-        }`}
-      >
-        {Math.max(0, Math.round(hp))} / {maxHp}
+      <p className={`mt-0.5 font-mono text-[10px] text-ink ${align === "right" ? "text-right" : "text-left"}`}>
+        {Math.max(0, Math.round(hp))}/{maxHp}
       </p>
     </div>
   );
