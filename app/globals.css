@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+@theme {
+  /* surfaces */
+  --color-arena: #0a0a12;       /* page background */
+  --color-panel: #151522;       /* cards, boxes */
+  --color-panel-edge: #2a2a40;  /* borders */
+
+  /* neon accents */
+  --color-neon-pink: #ff2e88;
+  --color-neon-cyan: #22d3ee;
+  --color-neon-yellow: #facc15;
+
+  /* health */
+  --color-hp-high: #22c55e;
+  --color-hp-mid: #facc15;
+  --color-hp-low: #ef4444;
+
+  /* fighter types (used from step 02 on) */
+  --color-type-heat: #f97316;
+  --color-type-sharp: #cbd5e1;
+  --color-type-electric: #facc15;
+  --color-type-liquid: #38bdf8;
+  --color-type-blunt: #a8a29e;
+  --color-type-chaos: #a855f7;
+
+  /* fonts (the variables are set in layout.tsx) */
+  --font-display: var(--font-bungee);
+  --font-body: var(--font-inter);
+}
+
+html, body {
+  background: var(--color-arena);
+  color: #f5f5f7;
+  overscroll-behavior: none;          /* no pull-to-refresh bounce */
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-body), system-ui, sans-serif;
+  /* subtle arena grid */
+  background-image:
+    linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* game screens should not select text on long-press */
+.no-select { user-select: none; -webkit-user-select: none; }
+
+/* neon glow text */
+.neon-pink { color: var(--color-neon-pink); text-shadow: 0 0 8px rgba(255,46,136,.7), 0 0 24px rgba(255,46,136,.45); }
+.neon-cyan { color: var(--color-neon-cyan); text-shadow: 0 0 8px rgba(34,211,238,.7), 0 0 24px rgba(34,211,238,.45); }
+.neon-yellow { color: var(--color-neon-yellow); text-shadow: 0 0 8px rgba(250,204,21,.7), 0 0 24px rgba(250,204,21,.45); }
