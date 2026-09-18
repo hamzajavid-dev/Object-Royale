@@ -1,6 +1,8 @@
 import type { Arena } from "./types";
 
 // Hard-coded roster used until Step 05 wires up the real AI scan.
+// Each fighter: 5 moves (4 normal + 1 special LAST), at least 3 with effects
+// that fit the object, and 2 object-flavoured abilities.
 export const MOCK_ARENA: Arena = {
   arenaName: "The Desk of Destiny",
   fighters: [
@@ -18,14 +20,29 @@ export const MOCK_ARENA: Arena = {
         {
           name: "Scalding Splash",
           type: "heat",
-          power: 22,
+          power: 20,
           description: "A tidal wave of cardamom-scented regret.",
+          effect: { kind: "burn", chance: 55 },
         },
         {
           name: "Milk Foam Slam",
           type: "blunt",
-          power: 15,
+          power: 16,
           description: "Whips foam into a passive-aggressive dairy tsunami.",
+        },
+        {
+          name: "Steam Cloud",
+          type: "heat",
+          power: 12,
+          description: "Wafts a disorienting cloud of fragrant steam.",
+          effect: { kind: "weaken", chance: 45 },
+        },
+        {
+          name: "Cardamom Rush",
+          type: "chaos",
+          power: 18,
+          description: "A jittery caffeine spike nobody asked for.",
+          effect: { kind: "boost", chance: 35 },
         },
         {
           name: "Third Cup Meltdown",
@@ -33,7 +50,12 @@ export const MOCK_ARENA: Arena = {
           power: 33,
           description: "Pure caffeine rage boils over the rim.",
           isSpecial: true,
+          effect: { kind: "burn", chance: 40 },
         },
+      ],
+      abilities: [
+        { name: "Hothead Brew", description: "Deals more damage the closer it gets to the dregs.", kind: "hothead" },
+        { name: "Ceramic Hide", description: "Its thick mug walls shrug off incoming hits.", kind: "thick_skin" },
       ],
     },
     {
@@ -50,14 +72,28 @@ export const MOCK_ARENA: Arena = {
         {
           name: "Fan Overclock",
           type: "electric",
-          power: 18,
+          power: 19,
           description: "Spins fans to eleven purely out of spite.",
+        },
+        {
+          name: "Notification Barrage",
+          type: "electric",
+          power: 13,
+          description: "Fires forty unread pings straight into your soul.",
+          effect: { kind: "stun", chance: 35 },
         },
         {
           name: "Keyboard Smash",
           type: "blunt",
-          power: 15,
+          power: 17,
           description: "Types entirely in furious all-caps rage.",
+        },
+        {
+          name: "Forced Update",
+          type: "chaos",
+          power: 11,
+          description: "Restarts mid-fight for 'important security patches'.",
+          effect: { kind: "shield", chance: 50 },
         },
         {
           name: "Blue Screen of Doom",
@@ -65,7 +101,12 @@ export const MOCK_ARENA: Arena = {
           power: 34,
           description: "Crashes reality itself for point-four glorious seconds.",
           isSpecial: true,
+          effect: { kind: "stun", chance: 30 },
         },
+      ],
+      abilities: [
+        { name: "Power Surge", description: "Its opening move hits with a jolt of full charge.", kind: "first_strike" },
+        { name: "Full Battery Luck", description: "A charged cell means suspiciously frequent critical hits.", kind: "lucky" },
       ],
     },
     {
@@ -82,8 +123,9 @@ export const MOCK_ARENA: Arena = {
         {
           name: "Staple Volley",
           type: "sharp",
-          power: 20,
+          power: 21,
           description: "Fires forty rounds of pure office aggression.",
+          effect: { kind: "drain", chance: 45 },
         },
         {
           name: "Jammed Fury",
@@ -92,12 +134,30 @@ export const MOCK_ARENA: Arena = {
           description: "Jams mid-swing, then explodes in petty chaos.",
         },
         {
+          name: "Paper Cut Combo",
+          type: "sharp",
+          power: 15,
+          description: "A hundred tiny, unforgivable paper cuts.",
+          effect: { kind: "drain", chance: 55 },
+        },
+        {
+          name: "Desk Slam",
+          type: "blunt",
+          power: 17,
+          description: "Body-slams the stationery tray in a rage.",
+        },
+        {
           name: "Full Cartridge Unload",
           type: "sharp",
           power: 32,
           description: "Empties the entire cartridge in one righteous fury.",
           isSpecial: true,
+          effect: { kind: "drain", chance: 40 },
         },
+      ],
+      abilities: [
+        { name: "Keen Edge", description: "Its sharpened jaw finds critical hits more often.", kind: "lucky" },
+        { name: "Loaded Spring", description: "Recoils hard, reflecting some damage right back.", kind: "thorns" },
       ],
     },
     {
@@ -114,7 +174,7 @@ export const MOCK_ARENA: Arena = {
         {
           name: "Bass Drop",
           type: "chaos",
-          power: 22,
+          power: 21,
           description: "Drops a bass so deep it cracks drywall.",
         },
         {
@@ -124,12 +184,31 @@ export const MOCK_ARENA: Arena = {
           description: "Lashes out with permanently, mysteriously knotted cables.",
         },
         {
+          name: "Static Screech",
+          type: "chaos",
+          power: 12,
+          description: "A piercing static burst that scrambles focus.",
+          effect: { kind: "weaken", chance: 50 },
+        },
+        {
+          name: "Noise Cancel Trick",
+          type: "blunt",
+          power: 13,
+          description: "Blocks out the world, and incidentally the next hit.",
+          effect: { kind: "stun", chance: 30 },
+        },
+        {
           name: "Feedback Screech",
           type: "chaos",
           power: 35,
           description: "Unleashes a screech that ends every conversation instantly.",
           isSpecial: true,
+          effect: { kind: "weaken", chance: 45 },
         },
+      ],
+      abilities: [
+        { name: "Spiky Earcups", description: "Its padded cups bite back when squeezed too hard.", kind: "thorns" },
+        { name: "Surprise Encore", description: "Somehow survives one hit that should've ended it.", kind: "last_stand" },
       ],
     },
     {
@@ -146,14 +225,28 @@ export const MOCK_ARENA: Arena = {
         {
           name: "Pressure Squirt",
           type: "liquid",
-          power: 18,
+          power: 19,
           description: "Blasts a jet reserved for gym-bag emergencies.",
         },
         {
           name: "Cap Flick Combo",
           type: "blunt",
-          power: 12,
+          power: 13,
           description: "Flicks its cap like a tiny plastic ninja.",
+        },
+        {
+          name: "Electrolyte Refill",
+          type: "liquid",
+          power: 10,
+          description: "Chugs a suspiciously glowing electrolyte mix.",
+          effect: { kind: "heal", chance: 60 },
+        },
+        {
+          name: "Condensation Slick",
+          type: "liquid",
+          power: 14,
+          description: "Leaves a slippery puddle nobody saw coming.",
+          effect: { kind: "weaken", chance: 40 },
         },
         {
           name: "Tsunami Chug",
@@ -161,7 +254,12 @@ export const MOCK_ARENA: Arena = {
           power: 31,
           description: "Empties itself entirely in one dramatic gulp.",
           isSpecial: true,
+          effect: { kind: "heal", chance: 35 },
         },
+      ],
+      abilities: [
+        { name: "Refill Station", description: "Tops itself back up a little every single turn.", kind: "regen" },
+        { name: "Reinforced Bottle", description: "Its tough plastic shell absorbs a chunk of every hit.", kind: "thick_skin" },
       ],
     },
     {
@@ -178,7 +276,7 @@ export const MOCK_ARENA: Arena = {
         {
           name: "Spine Slam",
           type: "blunt",
-          power: 20,
+          power: 21,
           description: "Slams shut with the force of deadlines.",
         },
         {
@@ -188,12 +286,31 @@ export const MOCK_ARENA: Arena = {
           description: "Delivers a hundred tiny, unforgivable paper cuts.",
         },
         {
+          name: "Hardcover Guard",
+          type: "blunt",
+          power: 11,
+          description: "Snaps shut tight behind its reinforced cover.",
+          effect: { kind: "shield", chance: 55 },
+        },
+        {
+          name: "Dog-Eared Taunt",
+          type: "chaos",
+          power: 14,
+          description: "Flashes a dog-eared page like a badge of honor.",
+          effect: { kind: "boost", chance: 40 },
+        },
+        {
           name: "Pop Quiz Panic",
           type: "chaos",
           power: 30,
           description: "Springs a surprise quiz nobody studied for.",
           isSpecial: true,
+          effect: { kind: "shield", chance: 35 },
         },
+      ],
+      abilities: [
+        { name: "Hardback Binding", description: "Its rigid cover soaks up a chunk of every blow.", kind: "thick_skin" },
+        { name: "Dog-Eared Comeback", description: "One page always survives to fight another round.", kind: "last_stand" },
       ],
     },
   ],
