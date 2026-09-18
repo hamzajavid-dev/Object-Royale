@@ -6,7 +6,9 @@ import RosterScreen from "@/components/RosterScreen";
 import VsScreen from "@/components/VsScreen";
 import BattleScreen from "@/components/BattleScreen";
 import VictoryScreen from "@/components/VictoryScreen";
+import ScanningScreen from "@/components/ScanningScreen";
 import { MOCK_ARENA } from "@/lib/mockArena";
+import { useArenaScan } from "@/lib/useArenaScan";
 import type { Arena } from "@/lib/types";
 import type { BattleState } from "@/lib/battle";
 
@@ -19,6 +21,7 @@ export default function Home() {
   const [opponentId, setOpponentId] = useState<string | null>(null);
   const [finalBattle, setFinalBattle] = useState<BattleState | null>(null);
   const [battleKey, setBattleKey] = useState(0);
+  const scan = useArenaScan();
 
   const player = arena?.fighters.find((f) => f.id === playerId) ?? null;
   const opponent = arena?.fighters.find((f) => f.id === opponentId) ?? null;
@@ -28,10 +31,9 @@ export default function Home() {
     setScreen("roster");
   }
 
-  function handlePhoto() {
-    // TODO step 05: real AI scan
-    setArena(MOCK_ARENA);
-    setScreen("roster");
+  function handlePhoto(file: File) {
+    setScreen("scanning");
+    scan.start(file);
   }
 
   function handleFight(pId: string, oId: string) {
@@ -54,6 +56,38 @@ export default function Home() {
         </motion.div>
       )}
 
+      {screen === "scanning" && (
+        <motion.div
+          key="scanning"
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.98 }}
+          transition={{ duration: 0.2 }}
+        >
+          <ScanningScreen
+            photoDataUrl={scan.photoDataUrl}
+            status={scan.status}
+            arena={scan.arena}
+            error={scan.error}
+            onContinue={() => {
+              if (scan.arena) {
+                setArena(scan.arena);
+                setScreen("roster");
+              }
+            }}
+            onRetry={() => {
+              scan.reset();
+              setScreen("capture");
+            }}
+            onUseDemo={() => {
+              scan.reset();
+              setArena(MOCK_ARENA);
+              setScreen("roster");
+            }}
+          />
+        </motion.div>
+      )}
+
       {screen === "roster" && arena && (
         <motion.div
           key="roster"
@@ -62,7 +96,14 @@ export default function Home() {
           exit={{ opacity: 0, scale: 0.98 }}
           transition={{ duration: 0.2 }}
         >
-          <RosterScreen arena={arena} onFight={handleFight} onBack={() => setScreen("capture")} />
+          <RosterScreen
+            arena={arena}
+            onFight={handleFight}
+            onBack={() => {
+              scan.reset();
+              setScreen("capture");
+            }}
+          />
         </motion.div>
       )}
 
@@ -117,6 +158,7 @@ export default function Home() {
             }}
             onRoster={() => setScreen("roster")}
             onNewArena={() => {
+              scan.reset();
               setArena(null);
               setScreen("capture");
             }}

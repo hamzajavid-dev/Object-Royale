@@ -1,6 +1,7 @@
 "use client";
 import type { ChangeEvent } from "react";
 import { motion } from "motion/react";
+import AiCommentaryToggle from "@/components/AiCommentaryToggle";
 
 type CaptureScreenProps = {
   onPhoto: (file: File) => void;
@@ -69,6 +70,7 @@ export default function CaptureScreen({ onPhoto, onDemo }: CaptureScreenProps) {
       <p className="text-xs text-neutral-500 mt-auto">
         Objects only. No humans were harmed in the making of these fights.
       </p>
+      <AiCommentaryToggle />
     </div>
   );
 }

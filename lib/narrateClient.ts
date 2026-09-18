@@ -5,8 +5,31 @@
 import { fallbackLine, type NarrateInput } from "./narrate";
 
 const CLIENT_TIMEOUT_MS = 4500;
+const AI_NARRATION_STORAGE_KEY = "or-ai-narration";
 
-let aiNarrationEnabled = true;
+// Off by default (during development and unless a viewer explicitly opted
+// in) so the game never makes a paid narration call by accident. Only "1"
+// in localStorage turns it on; a missing/other value stays OFF.
+function readStoredAiNarrationEnabled(): boolean {
+  try {
+    return window.localStorage.getItem(AI_NARRATION_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeStoredAiNarrationEnabled(enabled: boolean): void {
+  try {
+    window.localStorage.setItem(AI_NARRATION_STORAGE_KEY, enabled ? "1" : "0");
+  } catch {
+    // ignore storage failures (private mode, quota, etc.)
+  }
+}
+
+let aiNarrationEnabled = false;
+if (typeof window !== "undefined") {
+  aiNarrationEnabled = readStoredAiNarrationEnabled();
+}
 
 /**
  * "Save credits" switch for rehearsals/demos. When disabled, getNarration
@@ -14,6 +37,14 @@ let aiNarrationEnabled = true;
  */
 export function setAiNarration(enabled: boolean): void {
   aiNarrationEnabled = enabled;
+  if (typeof window !== "undefined") {
+    writeStoredAiNarrationEnabled(enabled);
+  }
+}
+
+/** Current in-memory value of the AI commentary switch (see setAiNarration). */
+export function isAiNarrationEnabled(): boolean {
+  return aiNarrationEnabled;
 }
 
 export async function getNarration(input: NarrateInput): Promise<string> {
