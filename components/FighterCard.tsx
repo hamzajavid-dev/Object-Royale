@@ -28,7 +28,7 @@ export default function FighterCard({ fighter, selectedAs, onTap, index }: Fight
       onClick={onTap}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0, scale: selectedAs ? 1.03 : 1 }}
-      transition={{ delay: index * 0.07, duration: 0.35 }}
+      transition={{ duration: 0.35, delay: index * 0.07, scale: { duration: 0.15, delay: 0 } }}
       whileTap={{ scale: 0.96 }}
       className={`relative bg-panel rounded-2xl border-2 p-3 text-left ${borderClass}`}
     >
